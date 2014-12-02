@@ -61,11 +61,20 @@ delete_doc(Id, Index, Context) ->
     Response = elastic_search:delete_doc(elasticsearch_connection(), Index, Type, Id),
     handle_response(Response).
 
+%% Handle Elasticsearch response
 handle_response(Response) ->
     case Response of
         {error, {StatusCode, Error}} ->
-            lager:error("Elasticsearch error: ~p: ~p", [StatusCode, Error]),
+            lager:error(
+                "Elasticsearch error: ~p: ~p with connection ~p",
+                [StatusCode, Error, elasticsearch_connection()]
+            ),
             Response;
+        {error, Reason} ->
+            lager:error(
+                "Elasticsearch error: ~p with connection ~p",
+                [Reason, elasticsearch_connection()]
+            );
         {ok, _} ->
             Response
     end.
