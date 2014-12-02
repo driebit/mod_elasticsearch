@@ -29,7 +29,7 @@ index(Context) ->
 
 %% Create Elasticsearch index
 create_index(Index) ->
-    Response = erlastic_search:create_index(z_convert:to_binary(Index)),
+    Response = erlastic_search:create_index(elasticsearch_connection(), z_convert:to_binary(Index)),
     handle_response(Response).
 
 %% Create Elasticsearch mapping
@@ -58,7 +58,7 @@ delete_doc(Id, Context) ->
 
 delete_doc(Id, Index, Context) ->
     Type = lists:last(m_rsc:is_a(Id, Context)),
-    Response = elastic_search:delete_doc(elasticsearch_connection(), Index, Type, Id),
+    Response = erlastic_search:delete_doc(elasticsearch_connection(), Index, Type, Id),
     handle_response(Response).
 
 %% Handle Elasticsearch response
