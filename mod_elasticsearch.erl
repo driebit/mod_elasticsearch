@@ -53,7 +53,7 @@ handle_cast({rsc_pivot_done, Id, _IsA}, State=#state{context=Context}) ->
     elasticsearch:put_doc(Id, Context),
     {noreply, State};
 
-handle_cast({rsv_delete, Id}, State=#state{context=Context}) ->
+handle_cast({rsc_delete, Id}, State=#state{context=Context}) ->
     elasticsearch:delete_doc(Id, Context),
     {noreply, State};
 
