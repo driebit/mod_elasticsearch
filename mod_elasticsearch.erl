@@ -42,7 +42,7 @@ init(Args) ->
 
     % Create default mapping
     DefaultMapping = elasticsearch_mapping:default_mapping(resource, Context),
-    ?DEBUG(elasticsearch:put_mapping("resource", DefaultMapping, Context)),
+    elasticsearch:put_mapping("resource", DefaultMapping, Context),
 
     {ok, #state{context=z_context:new(Context)}}.
 
