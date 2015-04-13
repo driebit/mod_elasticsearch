@@ -42,7 +42,7 @@ init(Args) ->
     case elasticsearch:index_exists(Index) of
         true -> noop;
         false ->
-            lager:info("Elasticsearch: creating index ~", [Index]),
+            lager:info("mod_elasticsearch: creating index ~p", [z_convert:to_list(Index)]),
             elasticsearch:create_index(Index)
     end,
 
