@@ -87,7 +87,6 @@ map_value({trans, Translations}) ->
 map_value(Value) ->
     Value.
 
-
 %% Get a default Elasticsearch mapping for Zotonic resources
 default_mapping(Type, Context) ->
     [{Type, [
@@ -133,10 +132,13 @@ default_mapping(Type, Context) ->
 %% Get analyzer for a language, depending on which languages are supported by
 %% Elasticsearch
 get_analyzer(LangCode) ->
-    Language =
-        string:to_lower(
-            iso639:lc2lang(z_convert:to_list(LangCode))
-        ),
+    Language = string:to_lower(
+        binary_to_list(
+            iso639:lc2lang(
+                atom_to_list(LangCode)
+            )
+        )
+    ),
 
     case is_supported_lang(Language) of
         true  -> z_convert:to_binary(Language);
@@ -150,6 +152,7 @@ get_language_property(Prop, Lang) ->
     ).
 
 %% Does Elasticsearch ship an analyzer for the language?
+-spec is_supported_lang(string()) -> boolean().
 is_supported_lang(Language) ->
     lists:member(Language, [
         "arabic", "armenian", "basque", "brazilian", "bulgarian", "catalan",
