@@ -13,7 +13,6 @@
 map_rsc(Id, Context) ->
     [
         {category, m_rsc:is_a(Id, Context)}
-
     ] ++
     map_location(Id, Context) ++
     lists:foldl(
@@ -84,6 +83,8 @@ map_value({trans, Translations}) ->
         end,
         Translations
     );
+map_value(undefined) ->
+    null;
 map_value(Value) ->
     Value.
 
