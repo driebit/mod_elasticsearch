@@ -49,7 +49,7 @@ create_index(Index) ->
 -spec index_exists(string()) -> boolean().
 index_exists(Index) ->
     Connection = connection(),
-    Response = erls_resource:get(
+    Response = erls_resource:head(
         Connection,
         filename:join([Index]),
         [],
