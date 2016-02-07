@@ -37,7 +37,7 @@ init(Args) ->
     hackney:start(),
     {context, Context} = proplists:lookup(context, Args),
 
-    %% Create default index if it doens't yet exist
+    %% Create default index if it doesn't yet exist
     Index = elasticsearch:index(Context),
     case elasticsearch:index_exists(Index) of
         true -> noop;
