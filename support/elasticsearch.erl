@@ -5,7 +5,7 @@
 -export([
     index/1,
     create_index/1,
-    create_index_if_not_exists/1,
+    ensure_index/1,
     index_exists/1,
     put_doc/2,
     put_doc/3,
@@ -25,33 +25,36 @@ connection() ->
     #erls_params{host=EsHost, port=EsPort, http_client_options=[]}.
 
 %% Get Elasticsearch index name from config; default to site name
+-spec index(#context{}) -> binary().
 index(Context) ->
     SiteName = z_context:site(Context),
     z_convert:to_binary(m_config:get_value(?MODULE, elasticsearch_index, SiteName, Context)).
 
 %% Create index only if it doesn't yet exist
--spec create_index_if_not_exists(string()) -> string().
-create_index_if_not_exists(Index) ->
+-spec ensure_index(binary()) -> noop | ok.
+ensure_index(Index) ->
     case index_exists(Index) of
         true ->
             noop;
         false ->
-            create_index(Index)
+            create_index(Index),
+            ok
     end.
 
 %% Create Elasticsearch index
 -spec create_index(string()) -> string().
 create_index(Index) ->
+    lager:info("mod_elasticsearch: creating index ~p", [z_convert:to_list(Index)]),
     Response = erlastic_search:create_index(connection(), z_convert:to_binary(Index)),
     handle_response(Response).
 
 %% Check if index exists
--spec index_exists(string()) -> boolean().
+-spec index_exists(binary()) -> boolean().
 index_exists(Index) ->
     Connection = connection(),
-    Response = erls_resource:head(
+    Response = erls_resource:get(
         Connection,
-        filename:join([Index]),
+        Index,
         [],
         [],
         Connection#erls_params.http_client_options
@@ -109,3 +112,4 @@ handle_response(Response) ->
         {ok, _} ->
             Response
     end.
+

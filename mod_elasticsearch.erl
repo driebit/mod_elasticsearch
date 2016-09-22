@@ -37,14 +37,7 @@ init(Args) ->
     hackney:start(),
     {context, Context} = proplists:lookup(context, Args),
 
-    %% Create default index if it doesn't yet exist
-    Index = elasticsearch:index(Context),
-    case elasticsearch:index_exists(Index) of
-        true -> noop;
-        false ->
-            lager:info("mod_elasticsearch: creating index ~p", [z_convert:to_list(Index)]),
-            elasticsearch:create_index(Index)
-    end,
+    elasticsearch:ensure_index(elasticsearch:index(Context)),
 
     %% Create default mapping
     DefaultMapping = elasticsearch_mapping:default_mapping(resource, Context),
@@ -74,3 +67,4 @@ code_change(_OldVsn, State, _Extra) ->
 
 terminate(_Reason, _State) ->
     ok.
+
