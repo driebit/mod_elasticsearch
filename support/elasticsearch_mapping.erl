@@ -71,9 +71,21 @@ map_property({Key, Value}) ->
     end.
 
 % Make Zotonic resource value Elasticsearch-friendly
-map_value({{Y,M,D},{H,I,S}} = DateTime) when
-is_integer(Y), is_integer(M), is_integer(D), is_integer(H), is_integer(I), is_integer(S) ->
-    z_convert:to_binary(z_convert:to_isotime(DateTime));
+map_value({{Y, M, D}, {H, I, S}} = DateTime) when
+    is_integer(Y), is_integer(M), is_integer(D),
+    is_integer(H), is_integer(I), is_integer(S) ->
+    case z_convert:to_isotime(DateTime) of
+        [] ->
+            %% e.g., ?ST_JUTTEMIS or invalid dates
+            null;
+        <<"">> ->
+            null;
+        Value ->
+            z_convert:to_binary(Value)
+    end;
+map_value({{_, _, _}, {_, _, _}}) ->
+    %% Invalid date
+    null;
 map_value({trans, Translations}) ->
     lists:map(
         % Strip HTML tags from translated props. This is only needed for body,
