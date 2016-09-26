@@ -32,23 +32,24 @@ map_rsc(Id, Context) ->
     ).
 
 map_location(Id, Context) ->
-    Lat = m_rsc:p(location_lat, Id, Context),
-    Long = m_rsc:p(location_lng, Id, Context),
-    case z_utils:is_empty(Lat) andalso z_utils:is_empty(Long) of
-        false ->
+    case {m_rsc:p(Id, location_lat, Context), m_rsc:p(Id, location_lng, Context)} of
+        {_, undefined} ->
+            [];
+        {undefined, _} ->
+            [];
+        {Lat, Lng} ->
             [{location, [
-                {lat, m_rsc:p(Id, location_lat, Context)},
-                {lon, m_rsc:p(Id, location_lng, Context)}
-            ]}];
-        true ->
-            []
+                {lat, z_convert:to_float(Lat)},
+                {lon, z_convert:to_float(Lng)}
+            ]}]
     end.
 
 map_property({Key, Value}) ->
     % Exclude some properties that don't need to be added to index
     IgnoredProps = [
-        pivot_geocode, managed_props, blocks, location_lng, location_lat,
-        location_zoom_level
+        geocode_qhash, location_lng, location_lat,
+        pivot_geocode_qhash, pivot_location_lat, pivot_location_lng,
+        managed_props, blocks, location_zoom_level
     ],
     case lists:member(Key, IgnoredProps) of
         true ->
