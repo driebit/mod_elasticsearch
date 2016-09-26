@@ -29,7 +29,8 @@ map_rsc(Id, Context) ->
         end,
         [],
         m_rsc:get(Id, Context)
-    ).
+    ) ++
+    map_edges(Id, Context).
 
 map_location(Id, Context) ->
     case {m_rsc:p(Id, location_lat, Context), m_rsc:p(Id, location_lng, Context)} of
@@ -38,7 +39,7 @@ map_location(Id, Context) ->
         {undefined, _} ->
             [];
         {Lat, Lng} ->
-            [{location, [
+            [{geolocation, [
                 {lat, z_convert:to_float(Lat)},
                 {lon, z_convert:to_float(Lng)}
             ]}]
@@ -47,9 +48,18 @@ map_location(Id, Context) ->
 map_property({Key, Value}) ->
     % Exclude some properties that don't need to be added to index
     IgnoredProps = [
+        crop_center,
+        feature_show_address, feature_show_geodata,
         geocode_qhash, location_lng, location_lat,
+        hasusergroup,
+        installed_by,
         pivot_geocode_qhash, pivot_location_lat, pivot_location_lng,
-        managed_props, blocks, location_zoom_level
+        managed_props, blocks, location_zoom_level,
+        seo_noindex,
+        tz,
+        visible_for,
+        %% possible custom props that will collide and we must therefore exclude:
+        geolocation
     ],
     case lists:member(Key, IgnoredProps) of
         true ->
@@ -101,47 +111,70 @@ map_value(undefined) ->
 map_value(Value) ->
     Value.
 
+map_edges(Id, Context) ->
+    [
+        {incoming_edges, incoming_edges(Id, Context)},
+        {outgoing_edges, outgoing_edges(Id, Context)}
+    ].
+
+incoming_edges(Id, Context) ->
+    lists:flatmap(
+        fun(Predicate) ->
+            lists:map(fun map_edge/1, m_edge:subject_edge_props(Id, Predicate, Context))
+        end,
+        m_edge:subject_predicates(Id, Context)
+    ).
+
+outgoing_edges(Id, Context) ->
+    lists:flatmap(
+        fun(Predicate) ->
+            lists:map(fun map_edge/1, m_edge:object_edge_props(Id, Predicate, Context))
+        end,
+        m_edge:object_predicates(Id, Context)
+    ).
+
+map_edge(Edge) ->
+    [
+        {predicate_id, proplists:get_value(predicate_id, Edge)},
+        {subject_id, proplists:get_value(subject_id, Edge)},
+        {object_id, proplists:get_value(object_id, Edge)},
+        {created, map_value(proplists:get_value(created, Edge))}
+    ].
+
 %% Get a default Elasticsearch mapping for Zotonic resources
-default_mapping(Type, Context) ->
-    [{Type, [
+default_mapping(resource, Context) ->
+    [
         {properties, [
             % location_lat and location_lon are stored in a location property
-            {location, [
+            {geolocation, [
                 {type, <<"geo_point">>}
             ]},
             {blocks, [
                 {type, <<"nested">>}
+            ]},
+            {incoming_edges, [
+                {type, <<"nested">>}
+            ]},
+            {outgoing_edges, [
+                {type, <<"nested">>}
             ]}
-        ]
-            ++
-            % If mod_translation is enabled, set language-specific analyzers
-            case z_module_manager:module_exists(mod_translation) of
-                true ->
-                    % Translations enabled, so add translated properties
-                    lists:foldl(
-                        fun(Prop, Acc) ->
-                            % For each enabled language, construct an analyzer
-                            Langs = lists:map(
-                                fun({LangCode, _}) ->
-                                    {get_language_property(Prop, LangCode), [
-                                        {type, string},
-                                        {analyzer, get_analyzer(LangCode)}
-                                    ]}
-                                end,
-                                m_translation:language_list_enabled(Context)
-                            ),
-                            Acc ++ Langs
-                        end,
-                        [],
-                        [title, short_title, body, summary]
-                    );
-
-                false ->
-                    %% Translations not enabled, so add single untranslated property
-                    []
-            end
+        ]},
+        {dynamic_templates,
+            lists:map(
+                fun({LangCode, _}) ->
+                    [{LangCode, [
+                        {match, iolist_to_binary([<<"*_">>, z_convert:to_binary(LangCode)])},
+                        {match_mapping_type, <<"string">>},
+                        {mapping, [
+                            {type, <<"text">>},
+                            {analyzer, get_analyzer(LangCode)}
+                        ]}
+                    ]}]
+                end,
+                m_translation:language_list_enabled(Context)
+            )
         }
-    ]}].
+    ].
 
 %% Get analyzer for a language, depending on which languages are supported by
 %% Elasticsearch
