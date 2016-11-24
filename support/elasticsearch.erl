@@ -3,6 +3,7 @@
 -author("Driebit <tech@driebit.nl>").
 
 -export([
+    connection/0,
     index/1,
     create_index/1,
     ensure_index/1,
