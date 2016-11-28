@@ -33,6 +33,9 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
         ]}
     ],
 
+    %% Invisible by default, as Zotonic has minimum log level 'info'
+    lager:debug("Elasticsearch query ~s", [jsx:encode(ElasticQuery)]),
+
     case erlastic_search:search(elasticsearch:connection(), elasticsearch:index(Context), ElasticQuery) of
         {ok, Json} ->
             Hits = proplists:get_value(<<"hits">>, Json),
@@ -63,16 +66,20 @@ map_sort(_, _) ->
 map_query({text, <<>>}, _Context) ->
     false;
 map_query({text, Text}, _Context) when is_binary(Text) ->
-    {true, [{multi_match, [{query, Text}, {fields, [
-        %% Search in all fields by default
-        <<"_all">>
+    {true, [{multi_match, [
+        {query, Text},
+        {fields, [
+            %% Search in all fields by default
+            <<"_all">>
 %%        <<"title*">>,
 %%        <<"short_title*">>,
 %%        <<"subtitle*">>,
 %%        <<"body*">>
-    ]}]}]};
-map_query({text, Text}, Context) when is_binary(Text) ->
-    map_query({text, Text}, Context);
+            ]
+        }
+    ]}]};
+map_query({text, Text}, Context) ->
+    map_query({text, z_convert:to_binary(Text)}, Context);
 map_query(_, _) ->
     false.
 
