@@ -30,6 +30,32 @@ such as:
 z_search:search({query, [{hasobject, 507}]}, Context).
 ````
 
+Notifications
+-------------
+
+### elasticsearch_put
+
+Observe this notification to change the resource properties before they are
+stored in Elasticsearch. For instance, to store their zodiac sign alongside 
+person resources:
+
+```erlang
+%% your_site.erl
+
+-export([
+    % ...
+    observe_elasticsearch_put/3
+]).
+
+observe_elasticsearch_put({elasticsearch_put, Id}, Props, Context) ->
+    case m_rsc:is_a(Id, person, Context) of
+        true ->
+            Props ++ [{zodiac, calculate_zodiac(Id, Context)}];
+        false ->
+            Props
+    end.
+```
+
 How resources are indexed
 -------------------------
 
