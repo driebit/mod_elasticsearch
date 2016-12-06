@@ -136,6 +136,30 @@ map_must({finished, true}, _Context) ->
     {true, [{range, [{date_end, [{<<"lt">>, <<"now">>}]}]}]};
 map_must({unfinished, true}, _Context) ->
     {true, [{range, [{date_end, [{<<"gt">>, <<"now">>}]}]}]};
+map_must({date_start_before, Date}, _Context) ->
+    {true, [{range, [
+        {date_start, [{<<"lte">>, z_convert:to_datetime(Date)}]}
+    ]}]};
+map_must({date_start_after, Date}, _Context) ->
+    {true, [{range, [
+        {date_start, [{<<"gte">>, z_convert:to_datetime(Date)}]}
+    ]}]};
+map_must({date_end_before, Date}, _Context) ->
+    {true, [{range, [
+        {date_end, [{<<"lte">>, z_convert:to_datetime(Date)}]}
+    ]}]};
+map_must({date_end_after, Date}, _Context) ->
+    {true, [{range, [
+        {date_end, [{<<"gte">>, z_convert:to_datetime(Date)}]}
+    ]}]};
+map_must({date_start_year, Year}, _Context) ->
+    {true, [{term, [{date_start, z_convert:to_binary(Year)}]}]};
+map_must({date_end_year, Year}, _Context) ->
+    {true, [{term, [{date_end, z_convert:to_binary(Year)}]}]};
+map_must({publication_year, Year}, _Context) ->
+    {true, [{term, [{publication_start, z_convert:to_binary(Year)}]}]};
+map_must({content_group, []}, _Context) ->
+    false;
 map_must({content_group, undefined}, _Context) ->
     false;
 map_must({content_group, Id}, Context) ->
@@ -192,7 +216,7 @@ map_must({hassubject, Subject}, Context) ->
     ]}]};
 map_must(_, _) ->
     false.
-%% TODO: hasanyobject date_start_before date_start_year date_end_after date_end_before date_end_year publication* unfinished_or_nodate
+%% TODO: hasanyobject unfinished_or_nodate publication_month
 
 
 %% @doc Filter out empty category values (<<>>, undefined) and non-existing categories
