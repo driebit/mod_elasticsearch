@@ -166,8 +166,18 @@ map_must({content_group, Id}, Context) ->
     {true, [{term, [{content_group_id, m_rsc:rid(Id, Context)}]}]};
 %% TODO Add support for other filter types
 %% http://docs.zotonic.com/en/latest/developer-guide/search.html#filter
+%% Use regular fields where Zotonic uses pivot_ fields
+%% @see z_pivot_rsc:pivot_resource/2
+map_must({filter, ["pivot_" ++ _ = Pivot, Value]}, Context) ->
+    map_must({filter, [map_pivot(Pivot), Value]}, Context);
 map_must({filter, [Key, Value]}, _Context) ->
-    {true, [{term, [{z_convert:to_binary(Key), Value}]}]};
+    %% Use a multi_match for wildcard fields, such as title_*, which we need
+    %% for multilingual setups, that have title_nl, title_en etc.
+    BinaryKey = z_convert:to_binary(Key),
+    {true, [{multi_match, [
+        {fields, [BinaryKey, <<BinaryKey/binary, "_*">>]},
+        {query, z_convert:to_binary(Value)}
+    ]}]};
 map_must({hasobject, [Object, Predicate]}, Context) ->
     {true, [{nested, [
         {path, <<"outgoing_edges">>},
@@ -234,3 +244,23 @@ filter_categories(Cats, Context) ->
         Cats
     ).
 
+
+%% @doc Map pivot column name to regular property name.
+%% @see z_pivot_rsc:pivot_resource/2
+%% While Zotonic (PostgreSQL) needs Pivot columns, we can do without in
+%% Elasticsearch.
+%% Built-in pivots:
+map_pivot("pivot_street") -> "address_street_1";
+map_pivot("pivot_city") -> "address_city";
+map_pivot("pivot_postcode") -> "address_postcode";
+map_pivot("pivot_state") -> "address_state";
+map_pivot("pivot_country") -> "address_country";
+map_pivot("pivot_first_name") -> "name_first";
+map_pivot("pivot_surname") -> "name_surname";
+map_pivot("pivot_gender") -> "gender";
+map_pivot("pivot_title") -> "title_*";
+map_pivot("pivot_location_lat") -> "location_lat";
+map_pivot("pivot_location_lng") -> "location_lng";
+%% Fur custom pivots, assume a custom pivot's name corresponds to the property
+%% it pivots:
+map_pivot("pivot_" ++ Property) -> Property.
