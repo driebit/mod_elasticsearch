@@ -26,10 +26,15 @@ connection() ->
     #erls_params{host=EsHost, port=EsPort, http_client_options=[]}.
 
 %% Get Elasticsearch index name from config; default to site name
--spec index(#context{}) -> binary().
+-spec index(z:context()) -> binary().
 index(Context) ->
     SiteName = z_context:site(Context),
-    z_convert:to_binary(m_config:get_value(?MODULE, elasticsearch_index, SiteName, Context)).
+    IndexName = case m_config:get_value(mod_elasticsearch, index, Context) of
+        undefined -> SiteName;
+        <<>> -> SiteName;
+        Value -> Value
+    end,
+    z_convert:to_binary(IndexName).
 
 %% Create index only if it doesn't yet exist
 -spec ensure_index(binary()) -> noop | ok.
