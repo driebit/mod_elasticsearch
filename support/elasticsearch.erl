@@ -21,8 +21,8 @@
 
 %% Get Elasticsearch connection params from config
 connection() ->
-    EsHost = z_config:get(elasticsearch_host, <<"127.0.0.1">>),
-    EsPort = z_config:get(elasticsearch_port, 9200),
+    EsHost = application:get_env(erlastic_search, host, z_config:get(elasticsearch_host, <<"127.0.0.1">>)),
+    EsPort = application:get_env(erlastic_search, port, z_config:get(elasticsearch_port, 9200)),
     #erls_params{host=EsHost, port=EsPort, http_client_options=[]}.
 
 %% Get Elasticsearch index name from config; default to site name

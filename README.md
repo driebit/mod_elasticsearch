@@ -1,6 +1,9 @@
 mod_elasticsearch
 =================
 
+Installation
+------------
+
 Add [tsloughter/erlastic_search](https://github.com/tsloughter/erlastic_search) and its
 dependencies at their proper version (for Erlang 18) to your Zotonic deps in `zotonic.config`:
 
@@ -13,11 +16,29 @@ dependencies at their proper version (for Erlang 18) to your Zotonic deps in `zo
 ]}
 ```
 
+Configuration
+-------------
+
+To configure the Elasticsearch host and port, edit your 
+[erlang.config](http://docs.zotonic.com/en/latest/ref/configuration/zotonic-configuration.html)
+file:
+
+```erlang
+[
+    %% ...
+    {erlastic_search, [
+        {host, <<"elasticsearch">>} %% Defaults to 127.0.0.1
+        {port, 9200}                %% Defaults to 9200
+    ]},
+    %% ...
+].
+```
+
 Search queries
 --------------
 
 When mod_elasticsearch is enabled, it will direct all search operations of the 
-query type to Elasticsearch:
+‘query’ type to Elasticsearch:
 
 ```erlang
 z_search:search({query, Args}, Context).
@@ -66,4 +87,3 @@ strategy:
 > Each translation is stored in a separate field, which is analyzed according to
 > the language it contains. At query time, the user’s language is used to boost
 > fields in that particular language.
-
