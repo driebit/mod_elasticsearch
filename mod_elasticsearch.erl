@@ -38,7 +38,7 @@ pid_observe_search_query(Pid, #search_query{} = Search, Context) ->
 
 %% gen_server callbacks
 init(Args) ->
-    hackney:start(),
+    application:ensure_all_started(erlastic_search),
     {context, Context} = proplists:lookup(context, Args),
 
     elasticsearch:ensure_index(elasticsearch:index(Context)),
