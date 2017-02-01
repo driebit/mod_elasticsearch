@@ -65,18 +65,14 @@ map_sort(_, _) ->
 -spec map_query({atom(), any()}, #context{}) -> {true, list()} | false.
 map_query({text, <<>>}, _Context) ->
     false;
-map_query({text, Text}, _Context) when is_binary(Text) ->
+map_query({text, Text}, Context) when is_binary(Text) ->
+    DefaultFields = [
+        <<"_all">>,
+        <<"title*^2">>
+    ],
     {true, [{multi_match, [
         {query, Text},
-        {fields, [
-            %% Search in all fields by default
-            <<"_all">>
-%%        <<"title*">>,
-%%        <<"short_title*">>,
-%%        <<"subtitle*">>,
-%%        <<"body*">>
-            ]
-        }
+        {fields, z_notifier:foldr({elasticsearch_fields, Text}, DefaultFields, Context)}
     ]}]};
 map_query({text, Text}, Context) ->
     map_query({text, z_convert:to_binary(Text)}, Context);

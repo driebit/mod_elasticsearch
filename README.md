@@ -54,6 +54,27 @@ z_search:search({query, [{hasobject, 507}]}, Context).
 Notifications
 -------------
 
+### elasticsearch_fields
+
+Observe this foldlr notification to change the document fields that are queried.
+You can use Elasticsearch [multi_match syntax](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html)
+for boosting fields:
+
+```erlang
+%% your_site.erl
+
+-export([
+    % ...
+    observe_elasticsearch_fields/3
+]).
+
+observe_elasticsearch_fields({elasticsearch_fields, QueryText}, Fields, Context) ->
+    %% QueryText is the search query text
+
+    %% Add or remove fields: 
+    [<<"some_field">>, <<"boosted_field^2">>|Fields].   
+```
+
 ### elasticsearch_put
 
 Observe this notification to change the resource properties before they are
