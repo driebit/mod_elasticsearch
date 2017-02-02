@@ -173,8 +173,13 @@ map_must({content_group, Id}, Context) ->
 %% http://docs.zotonic.com/en/latest/developer-guide/search.html#filter
 %% Use regular fields where Zotonic uses pivot_ fields
 %% @see z_pivot_rsc:pivot_resource/2
-map_must({filter, ["pivot_" ++ _ = Pivot, Value]}, Context) ->
+map_must({filter, [Key, Value]}, Context) when is_list(Key) ->
+    map_must({filter, [list_to_binary(Key), Value]}, Context);
+map_must({filter, [<<"pivot_", _/binary>> = Pivot, Value]}, Context) ->
     map_must({filter, [map_pivot(Pivot), Value]}, Context);
+map_must({filter, [<<"is_", _/binary>> = Key, Value]}, _Context) ->
+    %% Map boolean fields (is_*)
+    {true, [{term, [{Key, Value}]}]};
 map_must({filter, [Key, Value]}, _Context) ->
     %% Use a multi_match for wildcard fields, such as title_*, which we need
     %% for multilingual setups, that have title_nl, title_en etc.
@@ -255,7 +260,6 @@ filter_categories(Cats, Context) ->
 %% While Zotonic (PostgreSQL) needs Pivot columns, we can do without in
 %% Elasticsearch.
 %% Built-in pivots:
-map_pivot(List) when is_list(List) -> map_pivot(list_to_binary(List));
 map_pivot(<<"rsc.", Pivot/binary>>) -> map_pivot(Pivot);
 map_pivot(<<"pivot_street">>) -> <<"address_street_1">>;
 map_pivot(<<"pivot_city">>) -> <<"address_city">>;
