@@ -1,7 +1,7 @@
 -module(mod_elasticsearch).
 -author("Driebit <tech@driebit.nl>").
 
--mod_title("Elasticsearch module").
+-mod_title("Elasticsearch").
 -mod_description("Elasticsearch integration for Zotonic").
 -mod_prio(500).
 
