@@ -52,14 +52,19 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
             #search_result{}
     end.
 
-map_sort({sort, <<"-", Property/binary>>}, _Context) when is_binary(Property) ->
-    {true, [{Property, [{order, <<"desc">>}]}]};
-map_sort({sort, Property}, _Context) when is_binary(Property) ->
-    {true, [{Property, [{order, <<"asc">>}]}]};
-map_sort({sort, Property}, _Context) when is_list(Property) ->
-    map_sort({sort, z_convert:to_binary(Property)}, _Context);
+map_sort({sort, Property}, Context) when is_list(Property) ->
+    map_sort({sort, z_convert:to_binary(Property)}, Context);
+map_sort({sort, <<"-", Property/binary>>}, Context) ->
+    map_sort(Property, <<"desc">>, Context);
+map_sort({sort, <<"+", Property/binary>>}, Context) ->
+    map_sort(Property, <<"asc">>, Context);
+map_sort({sort, Property}, Context) ->
+    map_sort(Property, <<"asc">>, Context);
 map_sort(_, _) ->
     false.
+
+map_sort(Property, Order, _Context) ->
+    {true, [{map_sort_property(Property), [{order, Order}]}]}.
 
 %% @doc Map full text query
 -spec map_query({atom(), any()}, #context{}) -> {true, list()} | false.
@@ -83,9 +88,13 @@ map_query(_, _) ->
 -spec map_should({atom(), any()}, #context{}) -> {true, list()} | false.
 map_should({cat, []}, _Context) ->
     false;
-map_should({cat, [Hd|[]]}, Context) when is_list(Hd) ->
-    map_should({cat, Hd}, Context);
-map_should({cat, Cats}, Context) ->
+map_should({cat, Name}, Context) ->
+    Cats = case {z_string:is_string(Name), is_binary(Name)} of
+        {true, false} -> [iolist_to_binary(Name)];
+        {_, true} -> [Name];
+        _ -> Name
+    end,
+
     case filter_categories(Cats, Context) of
         [] ->
             false;
@@ -246,17 +255,31 @@ filter_categories(Cats, Context) ->
 %% While Zotonic (PostgreSQL) needs Pivot columns, we can do without in
 %% Elasticsearch.
 %% Built-in pivots:
-map_pivot("pivot_street") -> "address_street_1";
-map_pivot("pivot_city") -> "address_city";
-map_pivot("pivot_postcode") -> "address_postcode";
-map_pivot("pivot_state") -> "address_state";
-map_pivot("pivot_country") -> "address_country";
-map_pivot("pivot_first_name") -> "name_first";
-map_pivot("pivot_surname") -> "name_surname";
-map_pivot("pivot_gender") -> "gender";
-map_pivot("pivot_title") -> "title_*";
-map_pivot("pivot_location_lat") -> "location_lat";
-map_pivot("pivot_location_lng") -> "location_lng";
+map_pivot(List) when is_list(List) -> map_pivot(list_to_binary(List));
+map_pivot(<<"rsc.", Pivot/binary>>) -> map_pivot(Pivot);
+map_pivot(<<"pivot_street">>) -> <<"address_street_1">>;
+map_pivot(<<"pivot_city">>) -> <<"address_city">>;
+map_pivot(<<"pivot_postcode">>) -> <<"address_postcode">>;
+map_pivot(<<"pivot_state">>) -> <<"address_state">>;
+map_pivot(<<"pivot_country">>) -> <<"address_country">>;
+map_pivot(<<"pivot_first_name">>) -> <<"name_first">>;
+map_pivot(<<"pivot_surname">>) -> <<"name_surname">>;
+map_pivot(<<"pivot_gender">>) -> <<"gender">>;
+map_pivot(<<"pivot_title">>) -> <<"title_*">>;
+map_pivot(<<"pivot_location_lat">>) -> <<"location_lat">>;
+map_pivot(<<"pivot_location_lng">>) -> <<"location_lng">>;
 %% Fur custom pivots, assume a custom pivot's name corresponds to the property
 %% it pivots:
-map_pivot("pivot_" ++ Property) -> Property.
+map_pivot(<<"pivot_", Property/binary>>) -> Property;
+map_pivot(NoPivot) -> NoPivot.
+
+%% @doc Map Zotonic sort fields to Elasticsearch-compatible ones
+-spec map_sort_property(binary()) -> binary().
+%% Sort Sort on dates
+map_sort_property(<<"rsc.", Pivot/binary>>) -> map_sort_property(Pivot);
+map_sort_property(<<"pivot_date_", Property/binary>>) -> <<"date_", Property/binary>>;
+%% For other fields, sort on keyword. Even in case mod_translation is enabled,
+%% the keyword field is named title.keyword, not title_en.keyword etc.
+map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
+map_sort_property(Sort) -> map_pivot(Sort).
+
