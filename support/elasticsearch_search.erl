@@ -54,6 +54,9 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
 
 map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
     map_sort({sort, z_convert:to_binary(Property)}, Context);
+map_sort({sort, <<"seq">>}, _Context) ->
+    %% Ignore sort by seq: edges are (by default) indexed in order of seq
+    false;
 map_sort({sort, <<"-", Property/binary>>}, Context) ->
     map_sort(Property, <<"desc">>, Context);
 map_sort({sort, <<"+", Property/binary>>}, Context) ->
