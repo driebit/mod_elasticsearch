@@ -96,9 +96,10 @@ put_doc(Id, Index, Context) ->
 delete_doc(Id, Context) ->
     delete_doc(Id, index(Context), Context).
 
-delete_doc(Id, Index, Context) ->
-    Type = lists:last(m_rsc:is_a(Id, Context)),
-    Response = erlastic_search:delete_doc(connection(), Index, Type, Id),
+delete_doc(Id, Index, _Context) ->
+    Response = erlastic_search:delete_doc(
+        connection(), Index, "resource", z_convert:to_binary(Id)
+    ),
     handle_response(Response).
 
 %% Handle Elasticsearch response
