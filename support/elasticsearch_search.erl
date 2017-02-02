@@ -52,7 +52,7 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
             #search_result{}
     end.
 
-map_sort({sort, Property}, Context) when is_list(Property) ->
+map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
     map_sort({sort, z_convert:to_binary(Property)}, Context);
 map_sort({sort, <<"-", Property/binary>>}, Context) ->
     map_sort(Property, <<"desc">>, Context);
