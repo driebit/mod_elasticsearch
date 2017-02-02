@@ -182,7 +182,7 @@ map_must({filter, [<<"pivot_", _/binary>> = Pivot, Value]}, Context) ->
     map_must({filter, [map_pivot(Pivot), Value]}, Context);
 map_must({filter, [<<"is_", _/binary>> = Key, Value]}, _Context) ->
     %% Map boolean fields (is_*)
-    {true, [{term, [{Key, Value}]}]};
+    {true, [{term, [{Key, z_convert:to_bool(Value)}]}]};
 map_must({filter, [Key, Value]}, _Context) ->
     %% Use a multi_match for wildcard fields, such as title_*, which we need
     %% for multilingual setups, that have title_nl, title_en etc.
