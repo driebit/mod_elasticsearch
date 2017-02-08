@@ -7,6 +7,14 @@
 
 -include_lib("zotonic.hrl").
 
+with_query_id(Query, Context) ->
+    case proplists:get_value(query_id, Query) of
+         undefined ->
+             Query;
+         QueryId ->
+             search_query:parse_query_text(m_rsc:p(QueryId, 'query', Context)) ++ Query
+    end.
+
 %% @doc Convert Zotonic search query to an Elasticsearch query
 -spec search(#search_query{}, #context{}) -> #search_result{}.
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
@@ -14,19 +22,20 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
     search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Context);
 search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) ->
+    Query2 = with_query_id(Query, Context),
     ElasticQuery = [
         {from, From - 1},
         {size, Size},
         {'_source', false}, % Don't return _source as we only need the id
-        {sort, lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)},
+        {sort, lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query2)},
         {query, [
             {bool, [
-                {must, lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query)},
+                {must, lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query2)},
                 {filter, [
                     {bool, [
-                        {should, lists:filtermap(fun(Q) -> map_should(Q, Context) end, Query)},
-                        {must_not, lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query)},
-                        {must, lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query)}
+                        {should, lists:filtermap(fun(Q) -> map_should(Q, Context) end, Query2)},
+                        {must_not, lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query2)},
+                        {must, lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query2)}
                     ]}
                 ]}
             ]}
