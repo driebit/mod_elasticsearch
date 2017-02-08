@@ -7,14 +7,6 @@
 
 -include_lib("zotonic.hrl").
 
-with_query_id(Query, Context) ->
-    case proplists:get_value(query_id, Query) of
-         undefined ->
-             Query;
-         QueryId ->
-             search_query:parse_query_text(m_rsc:p(QueryId, 'query', Context)) ++ Query
-    end.
-
 %% @doc Convert Zotonic search query to an Elasticsearch query
 -spec search(#search_query{}, #context{}) -> #search_result{}.
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
@@ -59,6 +51,18 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
             ),
             %% Return empty search result
             #search_result{}
+    end.
+
+with_query_id(Query, Context) ->
+    case proplists:get_value(query_id, Query) of
+        undefined ->
+            Query;
+        QueryId ->
+            search_query:parse_query_text(
+                z_html:unescape(
+                    m_rsc:p(QueryId, 'query', Context)
+                )
+            ) ++ Query
     end.
 
 map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
@@ -220,6 +224,8 @@ map_must({hasobject, [Object, Predicate]}, Context) ->
             ]}
         ]}
     ]}]};
+map_must({hasobject, Object}, Context) when is_integer(Object); is_binary(Object) ->
+    map_must({hasobject, maybe_split_list(Object)}, Context);
 map_must({hasobject, Object}, Context) ->
     {true, [{nested, [
         {path, <<"outgoing_edges">>},
@@ -231,6 +237,8 @@ map_must({hasobject, Object}, Context) ->
             ]}
         ]}
     ]}]};
+map_must({hassubject, Object}, Context) when is_integer(Object); is_binary(Object) ->
+    map_must({hassubject, maybe_split_list(Object)}, Context);
 map_must({hassubject, [Subject, Predicate]}, Context) ->
     {true, [{nested, [
         {path, <<"incoming_edges">>},
@@ -304,6 +312,8 @@ map_sort_property(<<"rsc.", Pivot/binary>>) -> map_sort_property(Pivot);
 map_sort_property(<<"pivot_date_", Property/binary>>) -> <<"date_", Property/binary>>;
 %% For other fields, sort on keyword. Even in case mod_translation is enabled,
 %% the keyword field is named title.keyword, not title_en.keyword etc.
+map_sort_property(<<"pivot_surname">>) -> <<"name_surname.keyword">>;
+map_sort_property(<<"pivot_first_name">>) -> <<"name_first.keyword">>;
 map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
 
@@ -314,3 +324,25 @@ is_string_or_list(StringOrList) when is_list(StringOrList) ->
     end;
 is_string_or_list(_) ->
     false.
+
+%% Taken from search_query
+maybe_split_list(Id) when is_integer(Id) ->
+    [Id];
+maybe_split_list(<<"[", Rest/binary>>) ->
+    split_list(Rest);
+maybe_split_list([$[|Rest]) ->
+    split_list(z_convert:to_binary(Rest));
+maybe_split_list(Other) ->
+    [Other].
+
+split_list(Bin) ->
+    Bin1 = binary:replace(Bin, <<"]">>, <<>>, [global]),
+    Parts = binary:split(Bin1, <<",">>, [global]),
+    [ unquot(z_string:trim(P)) || P <- Parts ].
+
+unquot(<<C, Rest/binary>>) when C =:= $'; C =:= $"; C =:= $` ->
+    binary:replace(Rest, <<C>>, <<>>);
+unquot([C|Rest]) when C =:= $'; C =:= $"; C =:= $` ->
+    [ X || X <- Rest, X =/= C ];
+unquot(B) ->
+    B.
