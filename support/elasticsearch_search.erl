@@ -92,9 +92,17 @@ map_query(_, _) ->
 map_should({cat, []}, _Context) ->
     false;
 map_should({cat, Name}, Context) ->
-    Cats = case {z_string:is_string(Name), is_binary(Name)} of
-        {true, false} -> [iolist_to_binary(Name)];
+    Cats = case {is_string_or_list(Name), is_binary(Name)} of
+        {string, false} -> [iolist_to_binary(Name)];
         {_, true} -> [Name];
+        {false, _} -> [Name];
+        {list, _} ->
+            [Hd|_] = Name,
+            case is_string_or_list(Hd) of
+                list -> Hd;
+                string -> Name;
+                false -> Name
+            end;
         _ -> Name
     end,
 
@@ -290,3 +298,10 @@ map_sort_property(<<"pivot_date_", Property/binary>>) -> <<"date_", Property/bin
 map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
 
+is_string_or_list(StringOrList) when is_list(StringOrList) ->
+    case z_string:is_string(StringOrList) of
+        true -> string;
+        false -> list
+    end;
+is_string_or_list(_) ->
+    false.
