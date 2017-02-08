@@ -67,7 +67,7 @@ with_query_id(Query, Context) ->
 
 map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
     map_sort({sort, z_convert:to_binary(Property)}, Context);
-map_sort({sort, <<"seq">>}, _Context) ->
+map_sort({sort, Seq}, _Context) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">> ->
     %% Ignore sort by seq: edges are (by default) indexed in order of seq
     false;
 map_sort({sort, <<"-", Property/binary>>}, Context) ->
