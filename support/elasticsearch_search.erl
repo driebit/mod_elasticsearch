@@ -303,6 +303,33 @@ map_must({text, <<"id:", Id/binary>>}, _Context) ->
     {true, #{<<"match">> => #{
         <<"_id">> => z_string:trim(Id)
     }}};
+map_must({match_objects, Id}, Context) ->
+    %% Look up all outgoing edges of this resource
+    Clauses = lists:map(
+        fun({Predicate, OutgoingEdges}) ->
+            ObjectIds = [proplists:get_value(object_id, Edge) || Edge <- OutgoingEdges],
+            #{<<"bool">> => #{
+                <<"must">> => [
+                    #{<<"terms">> =>
+                        #{<<"outgoing_edges.object_id">> => ObjectIds}
+                    },
+                    #{<<"term">> =>
+                        #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
+                    }
+                ]
+            }}
+        end,
+        m_edge:get_edges(Id, Context)
+    ),
+
+    {true, [{nested, [
+        {path, <<"outgoing_edges">>},
+        {query, [
+            {bool, [
+                {should, Clauses}
+            ]}
+        ]}
+    ]}]};
 map_must(_, _) ->
     false.
 %% TODO: hasanyobject unfinished_or_nodate publication_month
