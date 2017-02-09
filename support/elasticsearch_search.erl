@@ -53,6 +53,7 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
             #search_result{}
     end.
 
+%% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
     case proplists:get_value(query_id, Query) of
         undefined ->
@@ -84,9 +85,14 @@ map_sort(Property, Order, _Context) ->
 
 %% @doc Map full text query
 -spec map_query({atom(), any()}, #context{}) -> {true, list()} | false.
+map_query({text, Text}, Context) when not is_binary(Text) ->
+    map_query({text, z_convert:to_binary(Text)}, Context);
 map_query({text, <<>>}, _Context) ->
     false;
-map_query({text, Text}, Context) when is_binary(Text) ->
+map_query({text, <<"id:", _/binary>>}, _Context) ->
+    %% Find by id: don't create a fulltext search clause
+    false;
+map_query({text, Text}, Context) ->
     DefaultFields = [
         <<"_all">>,
         <<"title*^2">>
@@ -95,8 +101,6 @@ map_query({text, Text}, Context) when is_binary(Text) ->
         {query, Text},
         {fields, z_notifier:foldr({elasticsearch_fields, Text}, DefaultFields, Context)}
     ]}]};
-map_query({text, Text}, Context) ->
-    map_query({text, z_convert:to_binary(Text)}, Context);
 map_query(_, _) ->
     false.
 
@@ -262,6 +266,13 @@ map_must({hassubject, Subject}, Context) ->
             ]}
         ]}
     ]}]};
+map_must({text, "id:" ++ _ = Val}, Context) ->
+    map_must({text, list_to_binary(Val)}, Context);
+map_must({text, <<"id:", Id/binary>>}, _Context) ->
+    %% Find by id when text argument equals "id:123"
+    {true, #{<<"match">> => #{
+        <<"_id">> => z_string:trim(Id)
+    }}};
 map_must(_, _) ->
     false.
 %% TODO: hasanyobject unfinished_or_nodate publication_month
