@@ -13,7 +13,21 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
     %% Size defaults to 10.000 max
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
     search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Context);
-search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) ->
+%% @doc Free search query in any index (non-resources)
+search(#search_query{search = {elastic, Query}, offsetlimit = {From, Size}}, _Context) ->
+    Index = z_convert:to_binary(proplists:get_value(index, Query)),
+    ElasticQuery = #{
+        <<"from">> => From - 1,
+        <<"size">> => Size,
+        <<"query">> => #{<<"multi_match">> => #{
+            <<"query">> => propists:get_value(text, Query),
+            <<"fields">> => ["_all"]
+        }}
+    },
+    Result = erlastic_search:search(Index, ElasticQuery),
+    search_result(Result, ElasticQuery, Query);
+%% @doc Resource search query
+search(#search_query{search = {query, Query}, offsetlimit = {From, Size}}, Context) ->
     Query2 = with_query_id(Query, Context),
     ElasticQuery = [
         {from, From - 1},
@@ -52,6 +66,22 @@ search(#search_query{search = {_, Query}, offsetlimit = {From, Size}}, Context) 
             %% Return empty search result
             #search_result{}
     end.
+
+%% @doc Process search result
+-spec search_result(tuple(), map(), proplists:proplist()) -> any().
+search_result({error, Error}, ElasticQuery, ZotonicQuery) ->
+    lager:error(
+        "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
+        [Error, jsx:encode(ElasticQuery), ZotonicQuery]
+    ),
+
+    %% Return empty search result
+    #search_result{};
+search_result({ok, Json}, _ElasticQuery, _ZotonicQuery) ->
+    Hits = proplists:get_value(<<"hits">>, Json),
+    Total = proplists:get_value(<<"total">>, Hits),
+    Results = proplists:get_value(<<"hits">>, Hits),
+    #search_result{result = Results, total = Total}.
 
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
