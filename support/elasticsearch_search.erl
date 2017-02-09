@@ -20,8 +20,8 @@ search(#search_query{search = {elastic, Query}, offsetlimit = {From, Size}}, _Co
         <<"from">> => From - 1,
         <<"size">> => Size,
         <<"query">> => #{<<"multi_match">> => #{
-            <<"query">> => proplists:get_value(text, Query),
-            <<"fields">> => ["_all"]
+            <<"query">> => z_convert:to_binary(proplists:get_value(text, Query)),
+            <<"fields">> => [<<"_all">>]
         }}
     },
     Result = erlastic_search:search(Index, ElasticQuery),
