@@ -33,7 +33,7 @@ search(#search_query{search = {query, Query}, offsetlimit = {From, Size}}, Conte
         {from, From - 1},
         {size, Size},
         {'_source', false}, % Don't return _source as we only need the id
-        {sort, lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query2)},
+        {sort, lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query2))},
         {query, [
             {bool, [
                 {must, lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query2)},
@@ -105,6 +105,13 @@ map_sort({sort, <<"-", Property/binary>>}, Context) ->
     map_sort(Property, <<"desc">>, Context);
 map_sort({sort, <<"+", Property/binary>>}, Context) ->
     map_sort(Property, <<"asc">>, Context);
+map_sort({match_objects, _Id}, _Context) ->
+    %% Sort a match_objects }by date
+    {true, [
+        <<"_score">>, %% Primary sort on score
+        #{<<"modified">> => <<"desc">>}
+
+    ]};
 map_sort({sort, Property}, Context) ->
     map_sort(Property, <<"asc">>, Context);
 map_sort(_, _) ->
@@ -130,6 +137,33 @@ map_query({text, Text}, Context) ->
     {true, [{multi_match, [
         {query, Text},
         {fields, z_notifier:foldr({elasticsearch_fields, Text}, DefaultFields, Context)}
+    ]}]};
+map_query({match_objects, Id}, Context) ->
+    %% Look up all outgoing edges of this resource
+    Clauses = lists:map(
+        fun({Predicate, OutgoingEdges}) ->
+            ObjectIds = [proplists:get_value(object_id, Edge) || Edge <- OutgoingEdges],
+            #{<<"bool">> => #{
+                <<"must">> => [
+                    #{<<"terms">> =>
+                        #{<<"outgoing_edges.object_id">> => ObjectIds}
+                    },
+                    #{<<"term">> =>
+                        #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
+                    }
+                ]
+            }}
+        end,
+        m_edge:get_edges(Id, Context)
+    ),
+
+    {true, [{nested, [
+        {path, <<"outgoing_edges">>},
+        {query, [
+            {bool, [
+                {should, Clauses}
+            ]}
+        ]}
     ]}]};
 map_query(_, _) ->
     false.
@@ -303,33 +337,6 @@ map_must({text, <<"id:", Id/binary>>}, _Context) ->
     {true, #{<<"match">> => #{
         <<"_id">> => z_string:trim(Id)
     }}};
-map_must({match_objects, Id}, Context) ->
-    %% Look up all outgoing edges of this resource
-    Clauses = lists:map(
-        fun({Predicate, OutgoingEdges}) ->
-            ObjectIds = [proplists:get_value(object_id, Edge) || Edge <- OutgoingEdges],
-            #{<<"bool">> => #{
-                <<"must">> => [
-                    #{<<"terms">> =>
-                        #{<<"outgoing_edges.object_id">> => ObjectIds}
-                    },
-                    #{<<"term">> =>
-                        #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
-                    }
-                ]
-            }}
-        end,
-        m_edge:get_edges(Id, Context)
-    ),
-
-    {true, [{nested, [
-        {path, <<"outgoing_edges">>},
-        {query, [
-            {bool, [
-                {should, Clauses}
-            ]}
-        ]}
-    ]}]};
 map_must(_, _) ->
     false.
 %% TODO: hasanyobject unfinished_or_nodate publication_month
