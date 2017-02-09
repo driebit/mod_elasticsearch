@@ -20,7 +20,7 @@ search(#search_query{search = {elastic, Query}, offsetlimit = {From, Size}}, _Co
         <<"from">> => From - 1,
         <<"size">> => Size,
         <<"query">> => #{<<"multi_match">> => #{
-            <<"query">> => propists:get_value(text, Query),
+            <<"query">> => proplists:get_value(text, Query),
             <<"fields">> => ["_all"]
         }}
     },
