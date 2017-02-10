@@ -143,16 +143,7 @@ map_query({match_objects, Id}, Context) ->
     Clauses = lists:map(
         fun({Predicate, OutgoingEdges}) ->
             ObjectIds = [proplists:get_value(object_id, Edge) || Edge <- OutgoingEdges],
-            #{<<"bool">> => #{
-                <<"must">> => [
-                    #{<<"terms">> =>
-                        #{<<"outgoing_edges.object_id">> => ObjectIds}
-                    },
-                    #{<<"term">> =>
-                        #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
-                    }
-                ]
-            }}
+            map_outgoing_edge(Predicate, ObjectIds, Context)
         end,
         m_edge:get_edges(Id, Context)
     ),
@@ -193,6 +184,17 @@ map_should({cat, Name}, Context) ->
         Filtered ->
             {true, [{terms, [{category, Filtered}]}]}
     end;
+map_should({hasanyobject, ObjectPredicates}, Context) ->
+    Expanded = search_query:expand_object_predicates(ObjectPredicates, Context),
+    OutgoingEdges = [map_outgoing_edge(Predicate, [Object], Context) || {Object, Predicate} <- Expanded],
+    {true, #{<<"nested">> => #{
+        <<"path">> => <<"outgoing_edges">>,
+        <<"query">> => #{
+            <<"bool">> => #{
+                <<"should">> => OutgoingEdges
+            }
+        }
+    }}};
 map_should(_, _Context) ->
     false.
 
@@ -305,8 +307,8 @@ map_must({hasobject, Object}, Context) ->
             ]}
         ]}
     ]}]};
-map_must({hassubject, Object}, Context) when is_integer(Object); is_binary(Object) ->
-    map_must({hassubject, maybe_split_list(Object)}, Context);
+map_must({hassubject, Subject}, Context) when is_integer(Subject); is_binary(Subject) ->
+    map_must({hassubject, maybe_split_list(Subject)}, Context);
 map_must({hassubject, [Subject, Predicate]}, Context) ->
     {true, [{nested, [
         {path, <<"incoming_edges">>},
@@ -339,7 +341,7 @@ map_must({text, <<"id:", Id/binary>>}, _Context) ->
     }}};
 map_must(_, _) ->
     false.
-%% TODO: hasanyobject unfinished_or_nodate publication_month
+%% TODO: unfinished_or_nodate publication_month
 
 
 %% @doc Filter out empty category values (<<>>, undefined) and non-existing categories
@@ -391,6 +393,42 @@ map_sort_property(<<"pivot_surname">>) -> <<"name_surname.keyword">>;
 map_sort_property(<<"pivot_first_name">>) -> <<"name_first.keyword">>;
 map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
+
+%% @doc Map an outgoing edge predicate/object(s) combination.
+%%      Filter out 'any' objects and predicates.
+-spec map_outgoing_edge(m_rsc:resource() | any, [m_rsc:resource() | any], z:context()) -> map().
+%% @doc Map outgoing edges and filter out any predicate and object parts.
+map_outgoing_edge(any, [], _Context) ->
+    #{};
+map_outgoing_edge(any, [any], _Context) ->
+    #{};
+map_outgoing_edge(Predicate, Objects, Context) when Objects =:= []; Objects =:= [any] ->
+    #{<<"bool">> => #{
+        <<"must">> => [
+            #{<<"term">> =>
+                #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
+            }
+        ]
+    }};
+map_outgoing_edge(any, Objects, _Context) ->
+    #{<<"bool">> => #{
+        <<"must">> => [
+            #{<<"terms">> =>
+                #{<<"outgoing_edges.object_id">> => Objects}
+            }
+        ]
+    }};
+map_outgoing_edge(Predicate, Objects, Context) ->
+    #{<<"bool">> => #{
+        <<"must">> => [
+            #{<<"terms">> =>
+                #{<<"outgoing_edges.object_id">> => Objects}
+            },
+            #{<<"term">> =>
+                #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
+            }
+        ]
+    }}.
 
 is_string_or_list(StringOrList) when is_list(StringOrList) ->
     case z_string:is_string(StringOrList) of
