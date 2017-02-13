@@ -164,20 +164,7 @@ map_query(_, _) ->
 map_should({cat, []}, _Context) ->
     false;
 map_should({cat, Name}, Context) ->
-    Cats = case {is_string_or_list(Name), is_binary(Name)} of
-        {string, false} -> [iolist_to_binary(Name)];
-        {_, true} -> [Name];
-        {false, _} -> [Name];
-        {list, _} ->
-            [Hd|_] = Name,
-            case is_string_or_list(Hd) of
-                list -> Hd;
-                string -> Name;
-                false -> Name
-            end;
-        _ -> Name
-    end,
-
+    Cats = parse_categories(Name),
     case filter_categories(Cats, Context) of
         [] ->
             false;
@@ -202,9 +189,8 @@ map_should(_, _Context) ->
 -spec map_must_not({atom(), any()}, #context{}) -> {true, list()} | false.
 map_must_not({cat_exclude, []}, _Context) ->
     false;
-map_must_not({cat_exclude, [Hd|[]]}, Context) when is_list(Hd) ->
-    map_must_not({cat_exclude, Hd}, Context);
-map_must_not({cat_exclude, Cats}, Context) ->
+map_must_not({cat_exclude, Name}, Context) ->
+    Cats = parse_categories(Name),
     case filter_categories(Cats, Context) of
         [] ->
             false;
@@ -459,3 +445,21 @@ unquot([C|Rest]) when C =:= $'; C =:= $"; C =:= $` ->
     [ X || X <- Rest, X =/= C ];
 unquot(B) ->
     B.
+
+%% @doc Parse cat, cat_exclude etc. argument, which can be a single or multiple
+%%      categories.
+-spec parse_categories(string() | list() | binary()) -> list().
+parse_categories(Name) ->
+    case {is_string_or_list(Name), is_binary(Name)} of
+        {string, false} -> [iolist_to_binary(Name)];
+        {_, true} -> [Name];
+        {false, _} -> [Name];
+        {list, _} ->
+            [Hd|_] = Name,
+            case is_string_or_list(Hd) of
+                list -> Hd;
+                string -> Name;
+                false -> Name
+            end;
+        _ -> Name
+    end.
