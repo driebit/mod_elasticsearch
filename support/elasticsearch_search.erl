@@ -7,6 +7,17 @@
 
 -include_lib("zotonic.hrl").
 
+map_aggregation({agg, [Name, Type, [Key, Value]]}, Map, _Context) ->
+    Map#{
+        z_convert:to_binary(Name) => #{
+            z_convert:to_binary(Type) => #{
+                z_convert:to_binary(Key) => z_convert:to_binary(Value)
+            }
+        }
+    };
+map_aggregation(_, Map, _) ->
+    Map.
+
 %% @doc Convert Zotonic search query to an Elasticsearch query
 -spec search(#search_query{}, #context{}) -> #search_result{}.
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
@@ -14,9 +25,10 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
     search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Context);
 %% @doc Free search query in any index (non-resources)
-search(#search_query{search = {elastic, Query}, offsetlimit = {From, Size}}, _Context) ->
+search(#search_query{search = {elastic, Query}, offsetlimit = {From, Size}}, Context) ->
     Index = z_convert:to_binary(proplists:get_value(index, Query)),
     ElasticQuery = #{
+        <<"aggregations">> => lists:foldl(fun(Arg, Acc) -> map_aggregation(Arg, Acc, Context) end, #{}, Query),
         <<"from">> => From - 1,
         <<"size">> => Size,
         <<"query">> => #{<<"multi_match">> => #{
@@ -81,7 +93,8 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery) ->
     Hits = proplists:get_value(<<"hits">>, Json),
     Total = proplists:get_value(<<"total">>, Hits),
     Results = proplists:get_value(<<"hits">>, Hits),
-    #search_result{result = Results, total = Total}.
+    Aggregations = proplists:get_value(<<"aggregations">>, Json),
+    #search_result{result = Results, total = Total, facets = Aggregations}.
 
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
