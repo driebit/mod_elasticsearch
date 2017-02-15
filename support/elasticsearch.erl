@@ -10,6 +10,7 @@
     index_exists/1,
     put_doc/2,
     put_doc/3,
+    put_doc/5,
     put_mapping/3,
     put_mapping/4,
     delete_doc/2,
@@ -18,6 +19,7 @@
 
 -include("zotonic.hrl").
 -include("deps/erlastic_search/include/erlastic_search.hrl").
+-include("../include/elasticsearch.hrl").
 
 %% Get Elasticsearch connection params from config
 connection() ->
@@ -82,15 +84,16 @@ put_mapping(Index, Type, Doc, _Context) ->
 
 %% Save a resource to Elasticsearch
 put_doc(Id, Context) ->
-    put_doc(Id, index(Context), Context).
+    put_doc(index(Context), Id, Context).
 
-put_doc(Id, Index, Context) ->
+put_doc(Index, Id, Context) ->
     % All resource properties
     Props = elasticsearch_mapping:map_rsc(Id, Context),
-    Data = lists:flatten(z_notifier:foldl({elasticsearch_put, Id}, Props, Context)),
-    Response = erlastic_search:index_doc_with_id(
-        connection(), Index, "resource", z_convert:to_binary(Id), Data
-    ),
+    put_doc(Index, <<"resource">>, z_convert:to_binary(Id), Props, Context).
+
+put_doc(Index, Type, Id, Data, Context) ->
+    NotifiedData = z_notifier:foldl(#elasticsearch_put{index = Index, type = Type, id = Id}, Data, Context),
+    Response = erlastic_search:index_doc_with_id(Index, Type, Id, NotifiedData),
     handle_response(Response).
 
 delete_doc(Id, Context) ->
