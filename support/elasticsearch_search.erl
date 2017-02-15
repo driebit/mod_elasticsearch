@@ -16,7 +16,7 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
 %% @doc Free search query in any index (non-resources)
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
     ElasticQuery = build_query(Query, Offset, Context),
-    do_search(ElasticQuery, Query, Context);
+    do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
 search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
     Query2 = with_query_id(Query, Context),
@@ -24,7 +24,7 @@ search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
     
     %% Optimize performance by not returning full source document
     NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
-    #search_result{result = Items} = SearchResult = do_search(NoSourceElasticQuery , Query2, Context),
+    #search_result{result = Items} = SearchResult = do_search(NoSourceElasticQuery, Query2, Offset, Context),
     Ids = [z_convert:to_integer(proplists:get_value(<<"_id">>, Item)) || Item <- Items],
     SearchResult#search_result{result = Ids}.
 
@@ -49,18 +49,17 @@ build_query(Query, {From, Size}, Context) ->
         }
     }.
 
--spec do_search(map(), proplists:proplist(), z:context()) -> #search_result{}.
-do_search(ElasticQuery, ZotonicQuery, Context) ->
+-spec do_search(map(), proplists:proplist(), {pos_integer(), pos_integer()}, z:context()) -> #search_result{}.
+do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
     %% Invisible by default, as Zotonic has minimum log level 'info'
     lager:debug("Elasticsearch query ~s", [jsx:encode(ElasticQuery)]),
     
     Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
-    search_result(erlastic_search:search(Index, ElasticQuery), ElasticQuery, ZotonicQuery).
-
+    search_result(erlastic_search:search(Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
 
 %% @doc Process search result
--spec search_result(tuple(), map(), proplists:proplist()) -> any().
-search_result({error, Error}, ElasticQuery, ZotonicQuery) ->
+-spec search_result(tuple(), map(), proplists:proplist(), tuple()) -> any().
+search_result({error, Error}, ElasticQuery, ZotonicQuery, _Offset) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
         [Error, jsx:encode(ElasticQuery), ZotonicQuery]
@@ -68,11 +67,13 @@ search_result({error, Error}, ElasticQuery, ZotonicQuery) ->
 
     %% Return empty search result
     #search_result{};
-search_result({ok, Json}, _ElasticQuery, _ZotonicQuery) ->
+search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     Hits = proplists:get_value(<<"hits">>, Json),
     Total = proplists:get_value(<<"total">>, Hits),
     Results = proplists:get_value(<<"hits">>, Hits),
-    #search_result{result = Results, total = Total}.
+    Page = From div Size + 1,
+    Pages = Total div Size,
+    #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page}.
 
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
