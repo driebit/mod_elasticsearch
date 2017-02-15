@@ -14,58 +14,49 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
     search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Context);
 %% @doc Free search query in any index (non-resources)
-search(#search_query{search = {elastic, Query}, offsetlimit = {From, Size}}, _Context) ->
-    Index = z_convert:to_binary(proplists:get_value(index, Query)),
-    ElasticQuery = #{
+search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
+    ElasticQuery = build_query(Query, Offset, Context),
+    do_search(ElasticQuery, Query, Context);
+%% @doc Resource search query
+search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
+    Query2 = with_query_id(Query, Context),
+    ElasticQuery = build_query(Query2, Offset, Context),
+    
+    %% Optimize performance by not returning full source document
+    NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
+    #search_result{result = Items} = SearchResult = do_search(NoSourceElasticQuery , Query2, Context),
+    Ids = [z_convert:to_integer(proplists:get_value(<<"_id">>, Item)) || Item <- Items],
+    SearchResult#search_result{result = Ids}.
+
+%% @doc Build Elasticsearch query from Zotonic query
+-spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
+build_query(Query, {From, Size}, Context) ->
+    #{
         <<"from">> => From - 1,
         <<"size">> => Size,
-        <<"query">> => #{<<"multi_match">> => #{
-            <<"query">> => z_convert:to_binary(proplists:get_value(text, Query)),
-            <<"fields">> => [<<"_all">>]
-        }}
-    },
-    Result = erlastic_search:search(Index, ElasticQuery),
-    search_result(Result, ElasticQuery, Query);
-%% @doc Resource search query
-search(#search_query{search = {query, Query}, offsetlimit = {From, Size}}, Context) ->
-    Query2 = with_query_id(Query, Context),
-    ElasticQuery = [
-        {from, From - 1},
-        {size, Size},
-        {'_source', false}, % Don't return _source as we only need the id
-        {sort, lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query2))},
-        {query, [
-            {bool, [
-                {must, lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query2)},
-                {filter, [
-                    {bool, [
-                        {should, lists:filtermap(fun(Q) -> map_should(Q, Context) end, Query2)},
-                        {must_not, lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query2)},
-                        {must, lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query2)}
-                    ]}
-                ]}
-            ]}
-        ]}
-    ],
+        <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
+        <<"query">> => #{
+            <<"bool">> => #{
+                <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
+                <<"filter">> => #{
+                    <<"bool">> => #{
+                        <<"should">> => lists:filtermap(fun(Q) -> map_should(Q, Context) end, Query),
+                        <<"must">> => lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query),
+                        <<"must_not">> => lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query)
+                    }
+                }
+            }
+        }
+    }.
 
+-spec do_search(map(), proplists:proplist(), z:context()) -> #search_result{}.
+do_search(ElasticQuery, ZotonicQuery, Context) ->
     %% Invisible by default, as Zotonic has minimum log level 'info'
     lager:debug("Elasticsearch query ~s", [jsx:encode(ElasticQuery)]),
+    
+    Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
+    search_result(erlastic_search:search(Index, ElasticQuery), ElasticQuery, ZotonicQuery).
 
-    case erlastic_search:search(elasticsearch:connection(), elasticsearch:index(Context), ElasticQuery) of
-        {ok, Json} ->
-            Hits = proplists:get_value(<<"hits">>, Json),
-            Total = proplists:get_value(<<"total">>, Hits),
-            Results = proplists:get_value(<<"hits">>, Hits),
-            Ids = [z_convert:to_integer(proplists:get_value(<<"_id">>, Result)) || Result <- Results],
-            #search_result{result = Ids, total = Total};
-        {error, Error} ->
-            lager:error(
-                "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
-                [Error, jsx:encode(ElasticQuery), Query]
-            ),
-            %% Return empty search result
-            #search_result{}
-    end.
 
 %% @doc Process search result
 -spec search_result(tuple(), map(), proplists:proplist()) -> any().
