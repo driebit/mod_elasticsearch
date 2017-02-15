@@ -98,6 +98,16 @@ observe_elasticsearch_put({elasticsearch_put, Id}, Props, Context) ->
     end.
 ```
 
+Logging
+-------
+
+By default, mod_elasticsearch logs outgoing queries at the debug log level. To
+see them in your Zotonic console, change the minimum log level to debug:
+
+```erlang
+lager:set_loglevel(lager_console_backend, debug).
+```
+
 How resources are indexed
 -------------------------
 
