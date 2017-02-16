@@ -161,7 +161,22 @@ map_should({cat, Name}, Context) ->
         [] ->
             false;
         Filtered ->
-            {true, [{terms, [{category, Filtered}]}]}
+            {true, #{
+                <<"bool">> => #{
+                    <<"should">> => [
+                        #{<<"bool">> => #{
+                            <<"must_not">> => [
+                                #{<<"term">> => #{
+                                    <<"_type">> => <<"resource">>}
+                                }
+                            ]
+                        }},
+                        #{<<"terms">> => #{
+                            <<"category">> => Filtered
+                        }}
+                    ]
+                }}
+            }
     end;
 map_should({hasanyobject, ObjectPredicates}, Context) ->
     Expanded = search_query:expand_object_predicates(ObjectPredicates, Context),
