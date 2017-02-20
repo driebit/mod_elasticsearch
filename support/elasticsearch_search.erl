@@ -51,10 +51,10 @@ build_query(Query, {From, Size}, Context) ->
 
 -spec do_search(map(), proplists:proplist(), {pos_integer(), pos_integer()}, z:context()) -> #search_result{}.
 do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
-    %% Invisible by default, as Zotonic has minimum log level 'info'
-    lager:debug("Elasticsearch query ~s", [jsx:encode(ElasticQuery)]),
-    
     Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
+
+    %% Invisible by default, as Zotonic has minimum log level 'info'
+    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(ElasticQuery)]),
     search_result(erlastic_search:search(Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
 
 %% @doc Process search result
