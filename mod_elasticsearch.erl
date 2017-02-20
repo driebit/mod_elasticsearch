@@ -4,7 +4,7 @@
 -mod_title("Elasticsearch").
 -mod_description("Elasticsearch integration for Zotonic").
 -mod_prio(500).
-
+-mod_schema(1).
 -behaviour(gen_server).
 
 -export([
@@ -17,7 +17,8 @@
     handle_info/2,
     terminate/2,
     code_change/3,
-    start_link/1
+    start_link/1,
+    manage_schema/2
 ]).
 
 -include("zotonic.hrl").
@@ -48,6 +49,18 @@ init(Args) ->
     {ok, _} = elasticsearch:put_mapping("resource", DefaultMapping, Context),
 
     {ok, #state{context = z_context:new(Context)}}.
+
+manage_schema(_Version, _Context) ->
+    #datamodel{
+        categories = [
+            {elastic_query, query, [
+                {title, {trans, [
+                    {nl, "Elasticsearch zoekopdracht"},
+                    {en, "Elasticsearch query"}
+                ]}}
+            ]}
+        ]
+    }.
 
 handle_call({#search_query{} = Search, Context}, _From, State) ->
     {reply, search(Search, Context), State};
