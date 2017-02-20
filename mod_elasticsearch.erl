@@ -37,13 +37,14 @@ pid_observe_rsc_delete(Pid, Msg, _Context) ->
 pid_observe_search_query(Pid, #search_query{} = Search, Context) ->
     gen_server:call(Pid, {Search, Context}).
 
-%% gen_server callbacks
 init(Args) ->
     application:ensure_all_started(erlastic_search),
     {context, Context} = proplists:lookup(context, Args),
-
-    elasticsearch:ensure_index(elasticsearch:index(Context)),
-
+    
+    %% Set default config
+    Index = elasticsearch:index(Context),
+    default_config(index, Index, Context),
+    
     %% Create default mapping
     DefaultMapping = elasticsearch_mapping:default_mapping(resource, Context),
     {ok, _} = elasticsearch:put_mapping("resource", DefaultMapping, Context),
@@ -92,3 +93,11 @@ search(#search_query{search = {query, _Query}} = Search, Context) ->
     elasticsearch_search:search(Search, Context);
 search(_Search, _Context) ->
     undefined.
+
+default_config(Key, Value, Context) ->
+    case m_config:get(?MODULE, Key, Context) of
+        undefined ->
+            m_config:set_value(?MODULE, Key, Value, Context);
+        _ ->
+            nop
+    end.
