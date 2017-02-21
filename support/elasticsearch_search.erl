@@ -15,13 +15,14 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
     search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Context);
 %% @doc Free search query in any index (non-resources)
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
+    ?DEBUG(Query),
     ElasticQuery = build_query(Query, Offset, Context),
     do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
 search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
     Query2 = with_query_id(Query, Context),
     ElasticQuery = build_query(Query2, Offset, Context),
-    
+
     %% Optimize performance by not returning full source document
     NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
     #search_result{result = Items} = SearchResult = do_search(NoSourceElasticQuery, Query2, Offset, Context),
@@ -90,7 +91,7 @@ with_query_id(Query, Context) ->
 
 map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
     map_sort({sort, z_convert:to_binary(Property)}, Context);
-map_sort({sort, Seq}, _Context) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">> ->
+map_sort({sort, Seq}, _Context) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">>; Seq =:= <<>>  ->
     %% Ignore sort by seq: edges are (by default) indexed in order of seq
     false;
 map_sort({sort, <<"-", Property/binary>>}, Context) ->
