@@ -46,7 +46,8 @@ build_query(Query, {From, Size}, Context) ->
                     }
                 }
             }
-        }
+        },
+        <<"aggregations">> => lists:foldl(fun(Arg, Acc) -> map_aggregation(Arg, Acc, Context) end, #{}, Query)
     }.
 
 -spec do_search(map(), proplists:proplist(), {pos_integer(), pos_integer()}, z:context()) -> #search_result{}.
@@ -73,7 +74,16 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     Results = proplists:get_value(<<"hits">>, Hits),
     Page = From div Size + 1,
     Pages = Total div Size,
-    #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page}.
+    Result = #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page},
+
+    %% BC for Zotonic < 0.26.0
+    case lists:member(facets, record_info(fields, search_result)) of
+        true ->
+            Aggregations = proplists:get_value(<<"aggregations">>, Json),
+            Result#search_result{facets = Aggregations};
+        false ->
+            Result
+    end.
 
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
@@ -164,6 +174,7 @@ map_should({cat, Name}, Context) ->
             {true, #{
                 <<"bool">> => #{
                     <<"should">> => [
+                        %% either it's a non-resource (some other document)
                         #{<<"bool">> => #{
                             <<"must_not">> => [
                                 #{<<"term">> => #{
@@ -171,6 +182,7 @@ map_should({cat, Name}, Context) ->
                                 }
                             ]
                         }},
+                        %% or (if a resource) it must match the categories
                         #{<<"terms">> => #{
                             <<"category">> => Filtered
                         }}
@@ -330,6 +342,15 @@ map_must(_, _) ->
     false.
 %% TODO: unfinished_or_nodate publication_month
 
+%% @doc Map aggregations (facets).
+map_aggregation({agg, [Name, Type, Values]}, Map, _Context) ->
+    Map#{
+        z_convert:to_binary(Name) => #{
+            z_convert:to_binary(Type) => maps:from_list(Values)
+        }
+    };
+map_aggregation(_, Map, _) ->
+    Map.
 
 %% @doc Filter out empty category values (<<>>, undefined) and non-existing categories
 -spec filter_categories(list(), #context{}) -> list(binary()).
