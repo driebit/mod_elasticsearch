@@ -74,17 +74,10 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     Results = proplists:get_value(<<"hits">>, Hits),
     Page = From div Size + 1,
     Pages = Total div Size,
-    Result = #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page},
+    Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
-    %% BC for Zotonic < 0.26.0
-    case lists:member(facets, record_info(fields, search_result)) of
-        true ->
-            Aggregations = proplists:get_value(<<"aggregations">>, Json),
-            Result#search_result{facets = Aggregations};
-        false ->
-            Result
-    end.
-
+    #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations}.
+    
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
     case proplists:get_value(query_id, Query) of
