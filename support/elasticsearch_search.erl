@@ -209,6 +209,10 @@ map_must_not({cat_exclude, Name}, Context) ->
         Filtered ->
             {true, [{terms, [{category, Filtered}]}]}
     end;
+map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key) ->
+    map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
+map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
+    {true, [{term, [{Key, Value}]}]};
 map_must_not({id_exclude, Id}, _Context) ->
     {true, [{term, [{id, z_convert:to_integer(Id)}]}]};
 map_must_not(_, _Context) ->
