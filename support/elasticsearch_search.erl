@@ -278,6 +278,14 @@ map_must({filter, [<<"is_", _/binary>> = Key, Value]}, _Context) ->
     {true, [{term, [{Key, z_convert:to_bool(Value)}]}]};
 map_must({filter, [Key, Value]}, _Context) ->
     {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
+map_must({filter, [Key, Operator, Value]}, Context) when is_list(Key); not is_binary(Operator) ->
+    map_must({filter, [list_to_binary(Key), z_convert:to_binary(Operator), Value]}, Context);
+map_must({filter, [Key, <<">">>, Value]}, _Context) ->
+    map_must({filter, [Key, <<"gt">>, Value]}, _Context);
+map_must({filter, [Key, Operator, Value]}, _Context)
+    when Operator =:= <<"gte">>; Operator =:= <<"gt">>; Operator =:= <<"lte">>; Operator =:= <<"lt">>
+->
+    {true, [{range, [{Key, [{Operator, z_convert:to_binary(Value)}]}]}]};
 map_must({hasobject, [Object, Predicate]}, Context) ->
     {true, [{nested, [
         {path, <<"outgoing_edges">>},
