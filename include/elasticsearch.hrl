@@ -3,3 +3,7 @@
     type :: binary(),
     id :: binary()
 }).
+
+-record(elasticsearch_fields, {
+    query :: binary()
+}).

@@ -6,6 +6,7 @@
 ]).
 
 -include_lib("zotonic.hrl").
+-include_lib("../include/elasticsearch.hrl").
 
 %% @doc Convert Zotonic search query to an Elasticsearch query
 -spec search(#search_query{}, #context{}) -> #search_result{}.
@@ -131,7 +132,7 @@ map_query({text, Text}, Context) ->
     ],
     {true, [{multi_match, [
         {query, Text},
-        {fields, z_notifier:foldr({elasticsearch_fields, Text}, DefaultFields, Context)}
+        {fields, z_notifier:foldr(#elasticsearch_fields{query = Text}, DefaultFields, Context)}
     ]}]};
 map_query({match_objects, Id}, Context) ->
     %% Look up all outgoing edges of this resource
