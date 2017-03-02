@@ -287,6 +287,8 @@ map_must({filter, [Key, Operator, Value]}, _Context)
     when Operator =:= <<"gte">>; Operator =:= <<"gt">>; Operator =:= <<"lte">>; Operator =:= <<"lt">>
 ->
     {true, [{range, [{Key, [{Operator, z_convert:to_binary(Value)}]}]}]};
+map_must({filter, [Key, Filter, _Value]}, _Context) when Filter =:= <<"exists">> ->
+    {true, [{Filter, [{field, Key}]}]};
 map_must({hasobject, [Object, Predicate]}, Context) ->
     {true, [{nested, [
         {path, <<"outgoing_edges">>},
