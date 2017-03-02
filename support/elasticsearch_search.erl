@@ -349,6 +349,8 @@ map_must(_, _) ->
 %% TODO: unfinished_or_nodate publication_month
 
 %% @doc Map aggregations (facets).
+map_aggregation({aggregation, [Name, Type, Values]}, Map, Context) ->
+    map_aggregation({agg, [Name, Type, Values]}, Map, Context);
 map_aggregation({agg, [Name, Type, Values]}, Map, _Context) ->
     Map#{
         z_convert:to_binary(Name) => #{
