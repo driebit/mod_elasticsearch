@@ -9,7 +9,7 @@
 -include_lib("../include/elasticsearch.hrl").
 
 %% @doc Convert Zotonic search query to an Elasticsearch query
--spec search(#search_query{}, #context{}) -> #search_result{}.
+-spec search(#search_query{}, z:context()) -> #search_result{}.
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
     %% Size defaults to 10.000 max
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
@@ -92,6 +92,8 @@ with_query_id(Query, Context) ->
             ) ++ Query
     end.
 
+%% @doc Map sort query arguments.
+%%      Return false to ignore the query argument.
 map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
     map_sort({sort, z_convert:to_binary(Property)}, Context);
 map_sort({sort, Seq}, _Context) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">>; Seq =:= <<>>  ->
@@ -117,7 +119,7 @@ map_sort(Property, Order, _Context) ->
     {true, [{map_sort_property(Property), [{order, Order}]}]}.
 
 %% @doc Map full text query
--spec map_query({atom(), any()}, #context{}) -> {true, list()} | false.
+-spec map_query({atom(), any()}, z:context()) -> {true, list()} | false.
 map_query({text, Text}, Context) when not is_binary(Text) ->
     map_query({text, z_convert:to_binary(Text)}, Context);
 map_query({text, <<>>}, _Context) ->
@@ -156,7 +158,7 @@ map_query(_, _) ->
     false.
 
 %% @doc Map OR
--spec map_should({atom(), any()}, #context{}) -> {true, list()} | false.
+-spec map_should({atom(), any()}, z:context()) -> {true, list()} | false.
 map_should({cat, []}, _Context) ->
     false;
 map_should({cat, Name}, Context) ->
@@ -199,7 +201,7 @@ map_should(_, _Context) ->
     false.
 
 %% @doc Map NOT
--spec map_must_not({atom(), any()}, #context{}) -> {true, list()} | false.
+-spec map_must_not({atom(), any()}, z:context()) -> {true, list()} | false.
 map_must_not({cat_exclude, []}, _Context) ->
     false;
 map_must_not({cat_exclude, Name}, Context) ->
@@ -220,7 +222,7 @@ map_must_not(_, _Context) ->
     false.
 
 %% @doc Map AND
--spec map_must({atom(), any()}, #context{}) -> {true, list()} | false.
+-spec map_must({atom(), any()}, z:context()) -> {true, list()} | false.
 map_must({authoritative, Bool}, _Context) ->
     {true, [{term, [{is_authoritative, z_convert:to_bool(Bool)}]}]};
 map_must({is_featured, Bool}, _Context) ->
@@ -270,6 +272,11 @@ map_must({content_group, Id}, Context) ->
 %% http://docs.zotonic.com/en/latest/developer-guide/search.html#filter
 %% Use regular fields where Zotonic uses pivot_ fields
 %% @see z_pivot_rsc:pivot_resource/2
+map_must({filter, [[Key | _] | _] = Filters}, Context) when is_list(Key); is_binary(Key); is_atom(Key) ->
+    %% Multiple filters: OR
+    {true, #{<<"bool">> => #{<<"should">> =>
+        lists:filtermap(fun(Filter) -> map_must({filter, Filter}, Context) end, Filters)
+    }}};
 map_must({filter, [Key, Value]}, Context) when is_list(Key) ->
     map_must({filter, [list_to_binary(Key), Value]}, Context);
 map_must({filter, [<<"pivot_", _/binary>> = Pivot, Value]}, Context) ->
@@ -363,7 +370,7 @@ map_aggregation(_, Map, _) ->
     Map.
 
 %% @doc Filter out empty category values (<<>>, undefined) and non-existing categories
--spec filter_categories(list(), #context{}) -> list(binary()).
+-spec filter_categories(list(), z:context()) -> list(binary()).
 filter_categories(Cats, Context) ->
     lists:filtermap(
         fun(Category) ->
