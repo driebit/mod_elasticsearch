@@ -366,6 +366,11 @@ map_aggregation({agg, [Name, Type, Values]}, Map, _Context) ->
             z_convert:to_binary(Type) => maps:from_list(Values)
         }
     };
+map_aggregation({agg, [Name, Values]}, Map, _Context) ->
+    %% Nested aggregation
+    Map#{
+        z_convert:to_binary(Name) => maps:from_list(Values)
+    };
 map_aggregation(_, Map, _) ->
     Map.
 
