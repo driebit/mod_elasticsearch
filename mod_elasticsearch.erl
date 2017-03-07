@@ -44,6 +44,9 @@ init(Args) ->
     %% Set default config
     Index = elasticsearch:index(Context),
     default_config(index, Index, Context),
+
+    %% Make sure index exists
+    erlastic_search:create_index(Index),
     
     %% Create default mapping
     DefaultMapping = elasticsearch_mapping:default_mapping(resource, Context),
