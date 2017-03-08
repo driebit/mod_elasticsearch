@@ -17,6 +17,7 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
 %% @doc Free search query in any index (non-resources)
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
     ElasticQuery = build_query(Query, Offset, Context),
+    ?DEBUG(ElasticQuery),
     do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
 search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
@@ -78,7 +79,7 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations}.
-    
+
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
     case proplists:get_value(query_id, Query) of
@@ -136,6 +137,10 @@ map_query({text, Text}, Context) ->
         {query, Text},
         {fields, z_notifier:foldr(#elasticsearch_fields{query = Text}, DefaultFields, Context)}
     ]}]};
+map_query({query_id, Id}, Context) ->
+    ElasticQuery = z_html:unescape(m_rsc:p(Id, <<"elastic_query">>, Context)),
+    Decoded=jsx:decode(ElasticQuery),
+    {true, Decoded};
 map_query({match_objects, Id}, Context) ->
     %% Look up all outgoing edges of this resource
     Clauses = lists:map(
