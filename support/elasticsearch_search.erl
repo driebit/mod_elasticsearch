@@ -17,7 +17,6 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
 %% @doc Free search query in any index (non-resources)
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
     ElasticQuery = build_query(Query, Offset, Context),
-    ?DEBUG(ElasticQuery),
     do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
 search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
