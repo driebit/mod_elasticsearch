@@ -138,8 +138,12 @@ map_query({text, Text}, Context) ->
     ]}]};
 map_query({query_id, Id}, Context) ->
     ElasticQuery = z_html:unescape(m_rsc:p(Id, <<"elastic_query">>, Context)),
-    Decoded=jsx:decode(ElasticQuery),
-    {true, Decoded};
+    case jsx:is_json(ElasticQuery) of
+        true ->
+            {true, jsx:decode(ElasticQuery)};
+        false ->
+            false
+    end;
 map_query({match_objects, Id}, Context) ->
     %% Look up all outgoing edges of this resource
     Clauses = lists:map(
