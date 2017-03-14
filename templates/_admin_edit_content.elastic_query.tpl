@@ -13,37 +13,29 @@
 {% with m.rsc[id] as r %}
 <fieldset>
 	<p class="notification notice">
-		{_ Here you can edit the arguments of the elasticsearch query. _}
+		{_ Here you can edit your elasticsearch query. _}
 	</p>
 
     <div class="form-group">
     	<label class="control-label" for="elastic_query">{_ Elasticsearch query _}</label>
     	<div>
-    	    {% with "cat='text'" as placeholder %}
+    	    {% with "[]" as placeholder %}
     	    <textarea class="form-control" id="{{ #elastic_query }}" name="elastic_query" rows="15" placeholder="{{ placeholder }}">{{ r.elastic_query }}</textarea>
     	    {% endwith %}
-    	{#	{% wire id=#elastic_query type="change" postback={query_preview rsc_id=id div_id=#querypreview target_id=#query} delegate="controller_admin_edit" %} #}
+    		{% wire id=#elastic_query type="change" postback={elastic_query_preview query_type="query" rsc_id=id div_id=#elastic_query_preview target_id=#elastic_query index=m.config.mod_elasticsearch.index.value} delegate="controller_admin_elasticsearch_edit" %}
     	</div>
-    </div>
-    {#
-    <div class="form-group">
-        <a id="{{ #test_query }}" class="btn btn-default">{_ Test query _}</a>
-        {% wire id=#test_query type="click" action={script script="$('#query').trigger('change')"} %}
     </div>
 
     <div class="form-group">
-    	<div class="checkbox"><label>
-    	    <input type="checkbox" id="is_query_live" name="is_query_live" {% if r.is_query_live %}checked{% endif %}/>
-    	    {_ Live query, send notifications when matching items are updated or inserted. _}
-    	</label></div>
+        <a id="{{ #test_elastic_query }}" class="btn btn-default">{_ Test query _}</a>
+        {% wire id=#test_elastic_query type="click" action={script script="$('#elastic_query').trigger('change')"} %}
     </div>
 
 	<h4>{_ Query preview _}</h4>
 
-	<div class="query-results" id="{{ #querypreview }}">
-		{% include "_admin_query_preview.tpl" result=m.search[{query query_id=id pagelen=20}] %}
-	</div>
-    #}
+	<div class="elastic-query-results" id="{{ #elastic_query_preview }}">
+		{% catinclude "_admin_query_preview.tpl" id result=m.search[{query query_id=id id=id index=m.config.mod_elasticsearch.index.value pagelen=20}] %}
+    </div>
 </fieldset>
 {% endwith %}
 {% endblock %}

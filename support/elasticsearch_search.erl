@@ -136,14 +136,16 @@ map_query({text, Text}, Context) ->
         {query, Text},
         {fields, z_notifier:foldr(#elasticsearch_fields{query = Text}, DefaultFields, Context)}
     ]}]};
-map_query({query_id, Id}, Context) ->
-    ElasticQuery = z_html:unescape(m_rsc:p(Id, <<"elastic_query">>, Context)),
+map_query({elastic_query, ElasticQuery}, _Context) ->
     case jsx:is_json(ElasticQuery) of
         true ->
             {true, jsx:decode(ElasticQuery)};
         false ->
             false
     end;
+map_query({query_id, Id}, Context) ->
+    ElasticQuery = z_html:unescape(m_rsc:p(Id, <<"elastic_query">>, Context)),
+    map_query({elastic_query, ElasticQuery}, Context);
 map_query({match_objects, Id}, Context) ->
     %% Look up all outgoing edges of this resource
     Clauses = lists:map(
@@ -279,7 +281,7 @@ map_must({content_group, Id}, Context) ->
 %% TODO Add support for other filter types
 %% http://docs.zotonic.com/en/latest/developer-guide/search.html#filter
 %% Use regular fields where Zotonic uses pivot_ fields
-%% @see z_pivot_rsc:pivot_resource/2
+%% @see z_pivot_rsc:pivot_resourcesource/2
 map_must({filter, [[Key | _] | _] = Filters}, Context) when is_list(Key); is_binary(Key); is_atom(Key) ->
     %% Multiple filters: OR
     {true, #{<<"bool">> => #{<<"should">> =>
