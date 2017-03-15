@@ -20,9 +20,10 @@
     	<label class="control-label" for="elastic_query">{_ Elasticsearch query _}</label>
     	<div>
     	    {% with "[]" as placeholder %}
-    	    <textarea class="form-control" id="{{ #elastic_query }}" name="elastic_query" rows="15" placeholder="{{ placeholder }}">{{ r.elastic_query }}</textarea>
+    	       <textarea class="form-control form-control--elasticquery" id="{{ #elastic_query }}" name="elastic_query" rows="15" placeholder="{{ placeholder }}">{{ r.elastic_query }}</textarea>
     	    {% endwith %}
-    		{% wire id=#elastic_query type="change" postback={elastic_query_preview query_type="query" rsc_id=id div_id=#elastic_query_preview target_id=#elastic_query index=m.config.mod_elasticsearch.index.value} delegate="controller_admin_elasticsearch_edit" %}
+    		
+            {% wire id=#elastic_query type="change" postback={elastic_query_preview query_type="query" rsc_id=id div_id=#elastic_query_preview target_id=#elastic_query index=m.config.mod_elasticsearch.index.value} delegate="controller_admin_elasticsearch_edit" %}
     	</div>
     </div>
 
