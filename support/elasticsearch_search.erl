@@ -298,14 +298,18 @@ map_must({filter, [Key, Value]}, _Context) ->
     {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
 map_must({filter, [Key, Operator, Value]}, Context) when is_list(Key); not is_binary(Operator) ->
     map_must({filter, [z_convert:to_binary(Key), z_convert:to_binary(Operator), Value]}, Context);
-map_must({filter, [Key, <<">">>, Value]}, _Context) ->
-    map_must({filter, [Key, <<"gt">>, Value]}, _Context);
-map_must({filter, [Key, Operator, Value]}, _Context)
-    when Operator =:= <<"gte">>; Operator =:= <<"gt">>; Operator =:= <<"lte">>; Operator =:= <<"lt">>
-->
-    {true, [{range, [{Key, [{Operator, z_convert:to_binary(Value)}]}]}]};
 map_must({filter, [Key, Filter, _Value]}, _Context) when Filter =:= <<"exists">> ->
     {true, [{Filter, [{field, Key}]}]};
+map_must({filter, [Key, <<">">>, Value]}, _Context) ->
+    map_must({filter, [Key, <<"gt">>, Value]}, _Context);
+map_must({filter, [Key, Operator, Value]}, Context) ->
+    map_must({filter, [Key, Operator, Value, []]}, Context);
+map_must({filter, [Key, Operator, Value, Options]}, _Context)
+    when Operator =:= <<"gte">>; Operator =:= <<"gt">>; Operator =:= <<"lte">>; Operator =:= <<"lt">>
+->
+    %% Example: {filter, [<<"dcterms:date">>, <<"gte">>, 2016, [{<<"format">>, <<"yyyy">>}]]}
+    Arguments = [{Operator, z_convert:to_binary(Value)} | Options],
+    {true, [{range, [{Key, Arguments}]}]};
 map_must({hasobject, [Object, Predicate]}, Context) ->
     {true, [{nested, [
         {path, <<"outgoing_edges">>},
