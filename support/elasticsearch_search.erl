@@ -226,6 +226,8 @@ map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key) ->
     map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     {true, [{term, [{Key, Value}]}]};
+map_must_not({filter, [Key, missing]}, _Context) ->
+    {true, [{<<"exists">>, [{field, Key}]}]};
 map_must_not({id_exclude, Id}, _Context) ->
     {true, [{term, [{id, z_convert:to_integer(Id)}]}]};
 map_must_not(_, _Context) ->
@@ -279,7 +281,7 @@ map_must({content_group, undefined}, _Context) ->
 map_must({content_group, Id}, Context) ->
     {true, [{term, [{content_group_id, m_rsc:rid(Id, Context)}]}]};
 %% TODO Add support for other filter types
-%% http://docs.zotonic.com/en/latest/developer-guide/search.html#filter
+%% http://docs.zotonic.com/ en/latest/developer-guide/search.html#filter
 %% Use regular fields where Zotonic uses pivot_ fields
 %% @see z_pivot_rsc:pivot_resourcesource/2
 map_must({filter, [[Key | _] | _] = Filters}, Context) when is_list(Key); is_binary(Key); is_atom(Key) ->
@@ -294,12 +296,12 @@ map_must({filter, [<<"pivot_", _/binary>> = Pivot, Value]}, Context) ->
 map_must({filter, [<<"is_", _/binary>> = Key, Value]}, _Context) ->
     %% Map boolean fields (is_*)
     {true, [{term, [{Key, z_convert:to_bool(Value)}]}]};
-map_must({filter, [Key, Value]}, _Context) ->
+map_must({filter, [Key, exists]}, _Context) ->
+    {true, [{<<"exists">>, [{field, Key}]}]};
+map_must({filter, [Key, Value]}, _Context) when Value =/= missing ->
     {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
 map_must({filter, [Key, Operator, Value]}, Context) when is_list(Key); not is_binary(Operator) ->
     map_must({filter, [z_convert:to_binary(Key), z_convert:to_binary(Operator), Value]}, Context);
-map_must({filter, [Key, Filter, _Value]}, _Context) when Filter =:= <<"exists">> ->
-    {true, [{Filter, [{field, Key}]}]};
 map_must({filter, [Key, <<">">>, Value]}, _Context) ->
     map_must({filter, [Key, <<"gt">>, Value]}, _Context);
 map_must({filter, [Key, Operator, Value]}, Context) ->

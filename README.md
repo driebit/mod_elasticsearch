@@ -51,6 +51,25 @@ such as:
 z_search:search({query, [{hasobject, 507}]}, Context).
 ````
 
+### Extra query arguments
+
+This module adds some extra query arguments on top of Zotonic’s default ones.
+
+To find documents that have a field, whatever its value (make sure to pass 
+`exists` as atom): 
+
+```erlang
+{filter, [<<"some_field">>, exists]}
+```
+
+To find documents that do not have a field (make sure to pass `missing` as 
+atom): 
+
+```erlang
+{filter, [<<"some_field">>, missing]}
+````
+
+
 Notifications
 -------------
 
