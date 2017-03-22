@@ -43,7 +43,7 @@ index(Context) ->
 ensure_index(Index) ->
     case index_exists(Index) of
         true ->
-            noop;
+            ok;
         false ->
             create_index(Index),
             ok
