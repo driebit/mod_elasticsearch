@@ -228,7 +228,7 @@ map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>';
     {true, [{term, [{Key, Value}]}]};
 map_must_not({filter, [Key, missing]}, _Context) ->
     {true, [{<<"exists">>, [{field, Key}]}]};
-map_must_not({id_exclude, Id}, _Context) ->
+map_must_not({id_exclude, Id}, _Context) when Id =/= undefined ->
     {true, [{term, [{id, z_convert:to_integer(Id)}]}]};
 map_must_not(_, _Context) ->
     false.
