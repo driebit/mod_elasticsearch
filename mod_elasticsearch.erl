@@ -45,9 +45,9 @@ init(Args) ->
     Index = elasticsearch:index(Context),
     default_config(index, Index, Context),
 
-    %% Make sure index exists
-    DefaultMapping = elasticsearch_mapping:default_mapping(resource, Context),
-    elasticsearch_index:upgrade(Index, <<"resource">>, 1, DefaultMapping, Context),
+    %% Prepare index
+    {Hash, Mapping} = elasticsearch_mapping:default_mapping(resource, Context),
+    elasticsearch_index:upgrade(Index, [{<<"resource">>, Mapping}], Hash, Context),
     {ok, #state{context = z_context:new(Context)}}.
 
 manage_schema(_Version, _Context) ->

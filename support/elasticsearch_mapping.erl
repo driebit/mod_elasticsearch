@@ -6,7 +6,8 @@
 
 -export([
     map_rsc/2,
-    default_mapping/2
+    default_mapping/2,
+    hash/1
 ]).
 
 %% Map a Zotonic resource
@@ -142,39 +143,44 @@ map_edge(Edge) ->
     ].
 
 %% Get a default Elasticsearch mapping for Zotonic resources
+-spec default_mapping(atom(), z:context()) -> {Hash :: binary(), Mapping :: map()}.
 default_mapping(resource, Context) ->
-    [
-        {properties, [
-            % location_lat and location_lon are stored in a location property
-            {geolocation, [
-                {type, <<"geo_point">>}
-            ]},
-            {blocks, [
-                {type, <<"nested">>}
-            ]},
-            {incoming_edges, [
-                {type, <<"nested">>}
-            ]},
-            {outgoing_edges, [
-                {type, <<"nested">>}
-            ]}
-        ]},
-        {dynamic_templates,
+    Mapping = #{
+        <<"properties">> => #{
+            <<"geolocation">> => #{
+                <<"type">> => <<"geo_point">>
+            },
+            <<"blocks">> => #{
+                <<"type">> => <<"nested">>
+            },
+            <<"incoming_edges">> => #{
+                <<"type">> => <<"nested">>
+            },
+            <<"outgoing_edges">> => #{
+                <<"type">> => <<"nested">>
+            }
+        },
+        <<"dynamic_templates">> =>
             lists:map(
                 fun({LangCode, _}) ->
-                    [{LangCode, [
-                        {match, iolist_to_binary([<<"*_">>, z_convert:to_binary(LangCode)])},
-                        {match_mapping_type, <<"string">>},
-                        {mapping, [
-                            {type, <<"text">>},
-                            {analyzer, get_analyzer(LangCode)}
-                        ]}
-                    ]}]
+                    #{LangCode => #{
+                        <<"match">> => <<"*_", (z_convert:to_binary(LangCode))/binary>>,
+                        <<"match_mapping_type">> => <<"string">>,
+                        <<"mapping">> => #{
+                            <<"type">> => <<"text">>,
+                            <<"analyzer">> => get_analyzer(LangCode)
+                        }
+                    }}
                 end,
                 m_translation:language_list_enabled(Context)
             )
-        }
-    ].
+    },
+    {hash(Mapping), Mapping}.
+    
+%% @doc Generate unique SHA1-based hash for a mapping
+-spec hash(map()) -> binary().
+hash(Map) ->
+    z_string:to_lower(z_utils:hex_encode(crypto:hash(sha, jsx:encode(Map)))).
 
 %% Get analyzer for a language, depending on which languages are supported by
 %% Elasticsearch
