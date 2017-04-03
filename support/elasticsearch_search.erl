@@ -313,55 +313,23 @@ map_must({filter, [Key, Operator, Value, Options]}, _Context)
     Arguments = [{Operator, z_convert:to_binary(Value)} | Options],
     {true, [{range, [{Key, Arguments}]}]};
 map_must({hasobject, [Object, Predicate]}, Context) ->
-    {true, [{nested, [
-        {path, <<"outgoing_edges">>},
-        {query, [
-            {bool, [
-                {filter, [
-                    [{term, [{<<"outgoing_edges.object_id">>, m_rsc:rid(Object, Context)}]}],
-                    [{term, [{<<"outgoing_edges.predicate_id">>, m_predicate:name_to_id_check(Predicate, Context)}]}]
-                ]}
-            ]}
-        ]}
-    ]}]};
-map_must({hasobject, Object}, Context) when is_integer(Object); is_binary(Object) ->
-    map_must({hasobject, maybe_split_list(Object)}, Context);
+    {true, #{<<"nested">> =>
+        #{
+            <<"path">> => <<"outgoing_edges">>,
+            <<"query">> => map_outgoing_edge(Predicate, [Object], Context)
+        }
+    }};
 map_must({hasobject, Object}, Context) ->
-    {true, [{nested, [
-        {path, <<"outgoing_edges">>},
-        {query, [
-            {bool, [
-                {filter, [
-                    {term, [{<<"outgoing_edges.object_id">>, m_rsc:rid(Object, Context)}]}
-                ]}
-            ]}
-        ]}
-    ]}]};
-map_must({hassubject, Subject}, Context) when is_integer(Subject); is_binary(Subject) ->
-    map_must({hassubject, maybe_split_list(Subject)}, Context);
-map_must({hassubject, [Subject, Predicate]}, Context) ->
-    {true, [{nested, [
-        {path, <<"incoming_edges">>},
-        {query, [
-            {bool, [
-                {filter, [
-                    [{term, [{<<"incoming_edges.subject_id">>, m_rsc:rid(Subject, Context)}]}],
-                    [{term, [{<<"incoming_edges.predicate_id">>, m_predicate:name_to_id_check(Predicate, Context)}]}]
-                ]}
-            ]}
-        ]}
-    ]}]};
-map_must({hassubject, Subject}, Context) ->
-    {true, [{nested, [
-        {path, <<"incoming_edges">>},
-        {query, [
-            {bool, [
-                {filter, [
-                    {term, [{<<"incoming_edges.subject_id">>, m_rsc:rid(Subject, Context)}]}
-                ]}
-            ]}
-        ]}
-    ]}]};
+    map_must({hasobject, [Object, any]}, Context);
+map_must({hassubject, [Object, Predicate]}, Context) ->
+    {true, #{<<"nested">> =>
+        #{
+            <<"path">> => <<"incoming_edges">>,
+            <<"query">> => map_incoming_edge(Predicate, [Object], Context)
+        }
+    }};
+map_must({hassubject, Object}, Context) ->
+    map_must({hasobject, [Object, any]}, Context);
 map_must({text, "id:" ++ _ = Val}, Context) ->
     map_must({text, list_to_binary(Val)}, Context);
 map_must({text, <<"id:", Id/binary>>}, _Context) ->
@@ -440,38 +408,44 @@ map_sort_property(<<"pivot_first_name">>) -> <<"name_first.keyword">>;
 map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
 
-%% @doc Map an outgoing edge predicate/object(s) combination.
+map_incoming_edge(Predicate, Objects, Context) ->
+    map_edge(Predicate, Objects, <<"incoming_edges">>, Context).
+
+map_outgoing_edge(Predicate, Objects, Context) ->
+    map_edge(Predicate, Objects, <<"outgoing_edges">>, Context).
+    
+%% @doc Map an incoming/outgoing edge predicate/object(s) combination.
 %%      Filter out 'any' objects and predicates.
--spec map_outgoing_edge(m_rsc:resource() | any, [m_rsc:resource() | any], z:context()) -> map().
+-spec map_edge(m_rsc:resource() | any, [m_rsc:resource() | any], Path :: binary(), z:context()) -> map().
 %% @doc Map outgoing edges and filter out any predicate and object parts.
-map_outgoing_edge(any, [], _Context) ->
+map_edge(any, [], _Path, _Context) ->
     #{};
-map_outgoing_edge(any, [any], _Context) ->
+map_edge(any, [any], _Path, _Context) ->
     #{};
-map_outgoing_edge(Predicate, Objects, Context) when Objects =:= []; Objects =:= [any] ->
+map_edge(Predicate, Objects, Path, Context) when Objects =:= []; Objects =:= [any] ->
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"term">> =>
-                #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
+                #{<<Path/binary, ".predicate_id">> => m_predicate:name_to_id_check(Predicate, Context)}
             }
         ]
     }};
-map_outgoing_edge(any, Objects, _Context) ->
+map_edge(any, Objects, Path, Context) ->
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"terms">> =>
-                #{<<"outgoing_edges.object_id">> => Objects}
+                #{<<Path/binary, ".object_id">> => [m_rsc:rid(O, Context) || O <- Objects]}
             }
         ]
     }};
-map_outgoing_edge(Predicate, Objects, Context) ->
+map_edge(Predicate, Objects, Path, Context) ->
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"terms">> =>
-                #{<<"outgoing_edges.object_id">> => Objects}
+                #{<<Path/binary, ".object_id">> => [m_rsc:rid(O, Context) || O <- Objects]}
             },
             #{<<"term">> =>
-                #{<<"outgoing_edges.predicate_id">> => m_rsc:rid(Predicate, Context)}
+                #{<<Path/binary, ".predicate_id">> => m_predicate:name_to_id_check(Predicate, Context)}
             }
         ]
     }}.
