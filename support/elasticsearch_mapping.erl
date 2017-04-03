@@ -158,6 +158,9 @@ default_mapping(resource, Context) ->
             },
             <<"outgoing_edges">> => #{
                 <<"type">> => <<"nested">>
+            },
+            <<"date_start">> => #{
+                <<"type">> => <<"date">>
             }
         },
         <<"dynamic_templates">> =>
