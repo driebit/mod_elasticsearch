@@ -51,7 +51,8 @@ maybe_reindex(Alias, NewIndex) ->
                 },
                 <<"dest">> => #{
                     <<"index">> => NewIndex
-                }
+                },
+                <<"conflicts">> => <<"proceed">>
             },
             
             %% This can take a while before completing
