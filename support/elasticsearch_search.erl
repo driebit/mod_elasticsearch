@@ -458,28 +458,6 @@ is_string_or_list(StringOrList) when is_list(StringOrList) ->
 is_string_or_list(_) ->
     false.
 
-%% Taken from search_query
-maybe_split_list(Id) when is_integer(Id) ->
-    [Id];
-maybe_split_list(<<"[", Rest/binary>>) ->
-    split_list(Rest);
-maybe_split_list([$[|Rest]) ->
-    split_list(z_convert:to_binary(Rest));
-maybe_split_list(Other) ->
-    [Other].
-
-split_list(Bin) ->
-    Bin1 = binary:replace(Bin, <<"]">>, <<>>, [global]),
-    Parts = binary:split(Bin1, <<",">>, [global]),
-    [ unquot(z_string:trim(P)) || P <- Parts ].
-
-unquot(<<C, Rest/binary>>) when C =:= $'; C =:= $"; C =:= $` ->
-    binary:replace(Rest, <<C>>, <<>>);
-unquot([C|Rest]) when C =:= $'; C =:= $"; C =:= $` ->
-    [ X || X <- Rest, X =/= C ];
-unquot(B) ->
-    B.
-
 %% @doc Parse cat, cat_exclude etc. argument, which can be a single or multiple
 %%      categories.
 -spec parse_categories(string() | list() | binary()) -> list().
