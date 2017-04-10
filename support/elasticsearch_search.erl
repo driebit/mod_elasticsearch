@@ -254,19 +254,19 @@ map_must({unfinished, true}, _Context) ->
     {true, [{range, [{date_end, [{<<"gt">>, <<"now">>}]}]}]};
 map_must({date_start_before, Date}, _Context) ->
     {true, [{range, [
-        {date_start, [{<<"lte">>, z_convert:to_datetime(Date)}]}
+        {date_start, [{<<"lt">>, z_convert:to_datetime(Date)}]}
     ]}]};
 map_must({date_start_after, Date}, _Context) ->
     {true, [{range, [
-        {date_start, [{<<"gte">>, z_convert:to_datetime(Date)}]}
+        {date_start, [{<<"gt">>, z_convert:to_datetime(Date)}]}
     ]}]};
 map_must({date_end_before, Date}, _Context) ->
     {true, [{range, [
-        {date_end, [{<<"lte">>, z_convert:to_datetime(Date)}]}
+        {date_end, [{<<"lt">>, z_convert:to_datetime(Date)}]}
     ]}]};
 map_must({date_end_after, Date}, _Context) ->
     {true, [{range, [
-        {date_end, [{<<"gte">>, z_convert:to_datetime(Date)}]}
+        {date_end, [{<<"gt">>, z_convert:to_datetime(Date)}]}
     ]}]};
 map_must({date_start_year, Year}, _Context) ->
     {true, [{term, [{date_start, z_convert:to_binary(Year)}]}]};
@@ -413,7 +413,7 @@ map_incoming_edge(Predicate, Objects, Context) ->
 
 map_outgoing_edge(Predicate, Objects, Context) ->
     map_edge(Predicate, Objects, <<"outgoing_edges">>, Context).
-    
+
 %% @doc Map an incoming/outgoing edge predicate/object(s) combination.
 %%      Filter out 'any' objects and predicates.
 -spec map_edge(m_rsc:resource() | any, [m_rsc:resource() | any], Path :: binary(), z:context()) -> map().
