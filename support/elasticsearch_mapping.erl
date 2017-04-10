@@ -161,6 +161,9 @@ default_mapping(resource, Context) ->
             },
             <<"date_start">> => #{
                 <<"type">> => <<"date">>
+            },
+            <<"date_end">> => #{
+                <<"type">> => <<"date">>
             }
         },
         <<"dynamic_templates">> =>
@@ -179,7 +182,7 @@ default_mapping(resource, Context) ->
             )
     },
     {hash(Mapping), Mapping}.
-    
+
 %% @doc Generate unique SHA1-based hash for a mapping
 -spec hash(map()) -> binary().
 hash(Map) ->
