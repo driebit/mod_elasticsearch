@@ -235,6 +235,10 @@ map_must_not(_, _Context) ->
 
 %% @doc Map AND
 -spec map_must({atom(), any()}, z:context()) -> {true, list()} | false.
+map_must({K, <<"true">>}, Context) ->
+    %% If booleans are defined in queries, they are passed as binaries. Convert
+    %% these to proper atoms.
+    map_must({K, true}, Context);
 map_must({authoritative, Bool}, _Context) ->
     {true, [{term, [{is_authoritative, z_convert:to_bool(Bool)}]}]};
 map_must({is_featured, Bool}, _Context) ->
