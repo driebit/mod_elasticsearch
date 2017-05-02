@@ -85,11 +85,7 @@ with_query_id(Query, Context) ->
         undefined ->
             Query;
         QueryId ->
-            search_query:parse_query_text(
-                z_html:unescape(
-                    m_rsc:p(QueryId, 'query', Context)
-                )
-            ) ++ Query
+            zotonic_query_rsc:parse(QueryId, Context) ++ Query
     end.
 
 %% @doc Map sort query arguments.
@@ -235,10 +231,6 @@ map_must_not(_, _Context) ->
 
 %% @doc Map AND
 -spec map_must({atom(), any()}, z:context()) -> {true, list()} | false.
-map_must({K, <<"true">>}, Context) ->
-    %% If booleans are defined in queries, they are passed as binaries. Convert
-    %% these to proper atoms.
-    map_must({K, true}, Context);
 map_must({authoritative, Bool}, _Context) ->
     {true, [{term, [{is_authoritative, z_convert:to_bool(Bool)}]}]};
 map_must({is_featured, Bool}, _Context) ->
