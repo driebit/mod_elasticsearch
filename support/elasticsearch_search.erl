@@ -286,13 +286,19 @@ map_must({content_group, Id}, Context) ->
 %% @see z_pivot_rsc:pivot_resourcesource/2
 map_must({filter, [[Key | _] | _] = Filters}, Context) when is_list(Key); is_binary(Key); is_atom(Key) ->
     %% Multiple filters: OR
+    OrFilters = lists:filtermap(fun(Filter) -> map_must({filter, Filter}, Context) end, Filters),
+    AllFilters = case lists:filtermap(fun(Filter) -> map_must_not({filter, Filter}, Context) end, Filters) of
+        [] ->
+            OrFilters;
+        OrNotFilters ->
+            OrFilters ++ [
+                #{<<"bool">> => #{
+                    <<"must_not">> => OrNotFilters
+                }}
+            ]
+    end,
     {true, #{<<"bool">> => #{
-        <<"should">> => lists:filtermap(fun(Filter) -> map_must({filter, Filter}, Context) end, Filters)
-        ++ [
-            #{<<"bool">> => #{
-                <<"must_not">> => lists:filtermap(fun(Filter) -> map_must_not({filter, Filter}, Context) end, Filters)
-            }}
-        ]
+        <<"should">> => AllFilters
     }}};
 map_must({filter, [Key, Value]}, Context) when is_list(Key) ->
     map_must({filter, [list_to_binary(Key), Value]}, Context);
