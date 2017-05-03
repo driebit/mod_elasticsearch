@@ -441,7 +441,7 @@ map_edge(any, Objects, Path, Context) ->
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"terms">> =>
-                #{<<Path/binary, ".object_id">> => [m_rsc:rid(O, Context) || O <- Objects]}
+                #{<<Path/binary, ".object_id">> => map_edge_objects(Objects, Context)}
             }
         ]
     }};
@@ -449,13 +449,17 @@ map_edge(Predicate, Objects, Path, Context) ->
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"terms">> =>
-                #{<<Path/binary, ".object_id">> => [m_rsc:rid(O, Context) || O <- Objects]}
+                #{<<Path/binary, ".object_id">> => map_edge_objects(Objects, Context)}
             },
             #{<<"term">> =>
                 #{<<Path/binary, ".predicate_id">> => m_predicate:name_to_id_check(Predicate, Context)}
             }
         ]
     }}.
+
+map_edge_objects(Objects, Context) ->
+    Ids = [m_rsc:rid(O, Context) || O <- Objects],
+    lists:filter(fun(Id) -> Id =/= undefined end, Ids).
 
 is_string_or_list(StringOrList) when is_list(StringOrList) ->
     case z_string:is_string(StringOrList) of
