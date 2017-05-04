@@ -12,8 +12,10 @@
 
 %% Map a Zotonic resource
 map_rsc(Id, Context) ->
+    Props = m_rsc:get(Id, Context),
     [
-        {category, m_rsc:is_a(Id, Context)}
+        {category, m_rsc:is_a(Id, Context)},
+        {pivot_title, default_translation(proplists:get_value(title, Props), Context)}
     ] ++
     map_location(Id, Context) ++
     lists:foldl(
@@ -29,7 +31,7 @@ map_rsc(Id, Context) ->
             end
         end,
         [],
-        m_rsc:get(Id, Context)
+        Props
     ) ++
     map_edges(Id, Context).
 
@@ -221,3 +223,24 @@ is_supported_lang(Language) ->
         "persian", "portuguese", "romanian", "russian", "spanish", "swedish",
         "turkish", "thai"
     ]).
+
+%% @doc Get default translation for a property.
+%%      Start from the site language, fall back to the first non-empty
+%%      translation.
+default_translation({trans, Translations}, Context) ->
+    %% First try site language
+    Language = z_convert:to_atom(m_config:get_value(i18n, language, Context)),
+    case proplists:get_value(Language, Translations) of
+        <<>> ->
+            %% Look up first non-empty translation
+            case lists:filter(fun({_Language, Value}) -> Value =/= <<>> end, Translations) of
+                [Hd|_] ->
+                    Hd;
+                [] ->
+                    undefined
+            end;
+        Translated ->
+            Translated
+    end;
+default_translation(Prop, _Context) ->
+    Prop.

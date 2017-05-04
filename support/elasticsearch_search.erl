@@ -423,6 +423,7 @@ map_sort_property(<<"pivot_date_", Property/binary>>) -> <<"date_", Property/bin
 %% the keyword field is named title.keyword, not title_en.keyword etc.
 map_sort_property(<<"pivot_surname">>) -> <<"name_surname.keyword">>;
 map_sort_property(<<"pivot_first_name">>) -> <<"name_first.keyword">>;
+map_sort_property(<<"pivot_title">>) -> <<"pivot_title.keyword">>;
 map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
 
