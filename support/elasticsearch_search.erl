@@ -41,7 +41,6 @@ build_query(Query, {From, Size}, Context) ->
                 <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
                 <<"filter">> => #{
                     <<"bool">> => #{
-                        <<"should">> => lists:filtermap(fun(Q) -> map_should(Q, Context) end, Query),
                         <<"must">> => lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query),
                         <<"must_not">> => lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query)
                     }
@@ -163,49 +162,6 @@ map_query({match_objects, Id}, Context) ->
 map_query(_, _) ->
     false.
 
-%% @doc Map OR
--spec map_should({atom(), any()}, z:context()) -> {true, list()} | false.
-map_should({cat, []}, _Context) ->
-    false;
-map_should({cat, Name}, Context) ->
-    Cats = parse_categories(Name),
-    case filter_categories(Cats, Context) of
-        [] ->
-            false;
-        Filtered ->
-            {true, #{
-                <<"bool">> => #{
-                    <<"should">> => [
-                        %% either it's a non-resource (some other document)
-                        #{<<"bool">> => #{
-                            <<"must_not">> => [
-                                #{<<"term">> => #{
-                                    <<"_type">> => <<"resource">>}
-                                }
-                            ]
-                        }},
-                        %% or (if a resource) it must match the categories
-                        #{<<"terms">> => #{
-                            <<"category">> => Filtered
-                        }}
-                    ]
-                }}
-            }
-    end;
-map_should({hasanyobject, ObjectPredicates}, Context) ->
-    Expanded = search_query:expand_object_predicates(ObjectPredicates, Context),
-    OutgoingEdges = [map_outgoing_edge(Predicate, [Object], Context) || {Object, Predicate} <- Expanded],
-    {true, #{<<"nested">> => #{
-        <<"path">> => <<"outgoing_edges">>,
-        <<"query">> => #{
-            <<"bool">> => #{
-                <<"should">> => OutgoingEdges
-            }
-        }
-    }}};
-map_should(_, _Context) ->
-    false.
-
 %% @doc Map NOT
 -spec map_must_not({atom(), any()}, z:context()) -> {true, list()} | false.
 map_must_not({cat_exclude, []}, _Context) ->
@@ -231,6 +187,33 @@ map_must_not(_, _Context) ->
 
 %% @doc Map AND
 -spec map_must({atom(), any()}, z:context()) -> {true, list()} | false.
+map_must({cat, []}, _Context) ->
+    false;
+map_must({cat, Name}, Context) ->
+    Cats = parse_categories(Name),
+    case filter_categories(Cats, Context) of
+        [] ->
+            false;
+        Filtered ->
+            {true, #{
+                <<"bool">> => #{
+                    <<"should">> => [
+                        %% either it's a non-resource (some other document)
+                        #{<<"bool">> => #{
+                            <<"must_not">> => [
+                                #{<<"term">> => #{
+                                    <<"_type">> => <<"resource">>}
+                                }
+                            ]
+                        }},
+                        %% or (if a resource) it must match the categories
+                        #{<<"terms">> => #{
+                            <<"category">> => Filtered
+                        }}
+                    ]
+                }}
+            }
+    end;
 map_must({authoritative, Bool}, _Context) ->
     {true, [{term, [{is_authoritative, z_convert:to_bool(Bool)}]}]};
 map_must({is_featured, Bool}, _Context) ->
@@ -326,8 +309,12 @@ map_must({hasobject, [Object, Predicate]}, Context) ->
             <<"query">> => map_outgoing_edge(Predicate, [Object], Context)
         }
     }};
+map_must({hasobject, [Object]}, Context) ->
+    map_must({hasobject, Object}, Context);
 map_must({hasobject, Object}, Context) ->
     map_must({hasobject, [Object, any]}, Context);
+map_must({hassubject, [Subject]}, Context) ->
+    map_must({hassubject, Subject}, Context);
 map_must({hassubject, [Object, Predicate]}, Context) ->
     {true, #{<<"nested">> =>
         #{
@@ -337,6 +324,17 @@ map_must({hassubject, [Object, Predicate]}, Context) ->
     }};
 map_must({hassubject, Object}, Context) ->
     map_must({hasobject, [Object, any]}, Context);
+map_must({hasanyobject, ObjectPredicates}, Context) ->
+    Expanded = search_query:expand_object_predicates(ObjectPredicates, Context),
+    OutgoingEdges = [map_outgoing_edge(Predicate, [Object], Context) || {Object, Predicate} <- Expanded],
+    {true, #{<<"nested">> => #{
+        <<"path">> => <<"outgoing_edges">>,
+        <<"query">> => #{
+            <<"bool">> => #{
+                <<"should">> => OutgoingEdges
+            }
+        }
+    }}};
 map_must({text, "id:" ++ _ = Val}, Context) ->
     map_must({text, list_to_binary(Val)}, Context);
 map_must({text, <<"id:", Id/binary>>}, _Context) ->
