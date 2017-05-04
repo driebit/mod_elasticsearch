@@ -26,8 +26,14 @@ search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
     %% Optimize performance by not returning full source document
     NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
     #search_result{result = Items} = SearchResult = do_search(NoSourceElasticQuery, Query2, Offset, Context),
-    Ids = [z_convert:to_integer(proplists:get_value(<<"_id">>, Item)) || Item <- Items],
+    Ids = [id_to_integer(Item) || Item <- Items],
     SearchResult#search_result{result = Ids}.
+
+id_to_integer(#{<<"_id">> := Id}) ->
+    %% JSX 3.0+
+    z_convert:to_integer(Id);
+id_to_integer(Item) ->
+    z_convert:to_integer(proplists:get_value(<<"_id">>, Item)).
 
 %% @doc Build Elasticsearch query from Zotonic query
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
@@ -68,7 +74,7 @@ search_result({error, Error}, ElasticQuery, ZotonicQuery, _Offset) ->
 
     %% Return empty search result
     #search_result{};
-search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
+search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_list(Json) ->
     Hits = proplists:get_value(<<"hits">>, Json),
     Total = proplists:get_value(<<"total">>, Hits),
     Results = proplists:get_value(<<"hits">>, Hits),
@@ -76,6 +82,13 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     Pages = Total div Size,
     Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
+    #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations};
+search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
+    %% From jsx 3.0+ or JSX_FORCE_MAPS is set
+    #{<<"total">> := Total, <<"hits">> := Results} = Hits,
+    Page = From div Size + 1,
+    Pages = Total div Size,
+    Aggregations = maps:get(<<"aggregations">>, Json, []),
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations}.
 
 %% @doc Add search arguments from query resource to original query
