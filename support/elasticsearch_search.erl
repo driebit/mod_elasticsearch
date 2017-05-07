@@ -83,6 +83,14 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_li
     Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations};
+search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQuery, ZotonicQuery, _Offset) ->
+    lager:error(
+        "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
+        [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
+    ),
+    
+    %% Return empty search result
+    #search_result{};
 search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     %% From jsx 3.0+ or JSX_FORCE_MAPS is set
     #{<<"total">> := Total, <<"hits">> := Results} = Hits,
