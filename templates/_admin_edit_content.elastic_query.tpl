@@ -13,7 +13,7 @@
 {% with m.rsc[id] as r %}
 <fieldset>
 	<p class="notification notice">
-		{_ Here you can edit your elasticsearch query. _}
+		{_ Here you can edit your Elasticsearch query. _}
 	</p>
 
     <div class="form-group">
@@ -22,7 +22,7 @@
     	    {% with "[]" as placeholder %}
     	       <textarea class="form-control form-control--elasticquery" id="{{ #elastic_query }}" name="elastic_query" rows="15" placeholder="{{ placeholder }}">{{ r.elastic_query }}</textarea>
     	    {% endwith %}
-    		
+
             {% wire id=#elastic_query type="change" postback={elastic_query_preview query_type="query" rsc_id=id div_id=#elastic_query_preview target_id=#elastic_query index=m.config.mod_elasticsearch.index.value} delegate="controller_admin_elasticsearch_edit" %}
     	</div>
     </div>
