@@ -7,7 +7,8 @@
 -export([
     map_rsc/2,
     default_mapping/2,
-    hash/1
+    hash/1,
+    dynamic_language_mapping/1
 ]).
 
 %% Map a Zotonic resource
@@ -168,20 +169,7 @@ default_mapping(resource, Context) ->
                 <<"type">> => <<"date">>
             }
         },
-        <<"dynamic_templates">> =>
-            lists:map(
-                fun({LangCode, _}) ->
-                    #{LangCode => #{
-                        <<"match">> => <<"*_", (z_convert:to_binary(LangCode))/binary>>,
-                        <<"match_mapping_type">> => <<"string">>,
-                        <<"mapping">> => #{
-                            <<"type">> => <<"text">>,
-                            <<"analyzer">> => get_analyzer(LangCode)
-                        }
-                    }}
-                end,
-                m_translation:language_list_enabled(Context)
-            )
+        <<"dynamic_templates">> => dynamic_language_mapping(Context)
     },
     {hash(Mapping), Mapping}.
 
@@ -189,6 +177,23 @@ default_mapping(resource, Context) ->
 -spec hash(map()) -> binary().
 hash(Map) ->
     z_string:to_lower(z_utils:hex_encode(crypto:hash(sha, jsx:encode(Map)))).
+
+%% @doc Get dynamic language mappings, based on available languages.
+-spec dynamic_language_mapping(z:context()) -> list().
+dynamic_language_mapping(Context) ->
+    lists:map(
+        fun({LangCode, _}) ->
+            #{LangCode => #{
+                <<"match">> => <<"*_", (z_convert:to_binary(LangCode))/binary>>,
+                <<"match_mapping_type">> => <<"string">>,
+                <<"mapping">> => #{
+                    <<"type">> => <<"text">>,
+                    <<"analyzer">> => get_analyzer(LangCode)
+                }
+            }}
+        end,
+        m_translation:language_list_enabled(Context)
+    ).
 
 %% Get analyzer for a language, depending on which languages are supported by
 %% Elasticsearch
