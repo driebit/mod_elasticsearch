@@ -356,6 +356,8 @@ map_must({hasanyobject, ObjectPredicates}, Context) ->
             }
         }
     }}};
+map_must({rsc_id, Id}, _Context) ->
+    {true, #{<<"match">> => #{<<"_id">> => Id}}};
 map_must({text, "id:" ++ _ = Val}, Context) ->
     map_must({text, list_to_binary(Val)}, Context);
 map_must({text, <<"id:", Id/binary>>}, _Context) ->
