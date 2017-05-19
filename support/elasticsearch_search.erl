@@ -452,10 +452,11 @@ map_edge(any, [], _Path, _Context) ->
 map_edge(any, [any], _Path, _Context) ->
     #{};
 map_edge(Predicate, Objects, Path, Context) when Objects =:= []; Objects =:= [any] ->
+    Id = m_predicate:name_to_id(Predicate, Context),
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"term">> =>
-                #{<<Path/binary, ".predicate_id">> => m_predicate:name_to_id_check(Predicate, Context)}
+                #{<<Path/binary, ".predicate_id">> => Id}
             }
         ]
     }};
@@ -468,13 +469,14 @@ map_edge(any, Objects, Path, Context) ->
         ]
     }};
 map_edge(Predicate, Objects, Path, Context) ->
+    {ok, Id} = m_predicate:name_to_id(Predicate, Context),
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"terms">> =>
                 #{<<Path/binary, ".object_id">> => map_edge_objects(Objects, Context)}
             },
             #{<<"term">> =>
-                #{<<Path/binary, ".predicate_id">> => m_predicate:name_to_id_check(Predicate, Context)}
+                #{<<Path/binary, ".predicate_id">> => Id}
             }
         ]
     }}.
