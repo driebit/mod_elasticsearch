@@ -230,22 +230,6 @@ is_supported_lang(Language) ->
     ]).
 
 %% @doc Get default translation for a property.
-%%      Start from the site language, fall back to the first non-empty
-%%      translation.
-default_translation({trans, Translations}, Context) ->
-    %% First try site language
-    Language = z_convert:to_atom(m_config:get_value(i18n, language, Context)),
-    case proplists:get_value(Language, Translations) of
-        <<>> ->
-            %% Look up first non-empty translation
-            case lists:filter(fun({_Language, Value}) -> Value =/= <<>> end, Translations) of
-                [Hd|_] ->
-                    Hd;
-                [] ->
-                    undefined
-            end;
-        Translated ->
-            Translated
-    end;
-default_translation(Prop, _Context) ->
-    Prop.
+%%      Default is the (global) site language, not the Context's language.
+default_translation(Trans, Context) ->
+    z_trans:lookup_fallback(Trans, z_trans:default_language(Context), Context).
