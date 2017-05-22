@@ -452,7 +452,7 @@ map_edge(any, [], _Path, _Context) ->
 map_edge(any, [any], _Path, _Context) ->
     #{};
 map_edge(Predicate, Objects, Path, Context) when Objects =:= []; Objects =:= [any] ->
-    Id = m_predicate:name_to_id(Predicate, Context),
+    {ok, Id} = m_predicate:name_to_id(Predicate, Context),
     #{<<"bool">> => #{
         <<"must">> => [
             #{<<"term">> =>
