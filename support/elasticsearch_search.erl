@@ -18,6 +18,10 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
     ElasticQuery = build_query(Query, Offset, Context),
     do_search(ElasticQuery, Query, Offset, Context);
+%% @doc Free search query in any index (non-resources)
+search(#search_query{search = {elastic_suggest, Query}, offsetlimit = Offset}, Context) ->
+    ElasticQuery = build_query(Query, Offset, Context),
+    do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
 search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
     Query2 = with_query_id(Query, Context),
@@ -180,6 +184,13 @@ map_query({match_objects, Id}, Context) ->
             ]}
         ]}
     ]}]};
+
+map_query({suggest, Text}, _Context) ->
+    {true, [{suggest, [
+        {prefix, z_convert:to_binary(Text)},
+        {completion, [{field, suggest}]}
+    ]}]};
+
 map_query(_, _) ->
     false.
 
