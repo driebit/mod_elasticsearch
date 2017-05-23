@@ -18,9 +18,21 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
     ElasticQuery = build_query(Query, Offset, Context),
     do_search(ElasticQuery, Query, Offset, Context);
-%% @doc Free search query in any index (non-resources)
+%% @doc Elasticsearch suggest completion query
 search(#search_query{search = {elastic_suggest, Query}, offsetlimit = Offset}, Context) ->
-    ElasticQuery = build_query(Query, Offset, Context),
+    Prefix = z_convert:to_binary(proplists:get_value(suggest, Query)),
+    Field = z_convert:to_binary(proplists:get_value(field, Query, <<"suggest">>)),
+    ElasticQuery = #{
+        <<"suggest">> => #{
+            <<"suggest">> => #{
+                <<"prefix">> => Prefix,
+                <<"completion">> => #{
+                    <<"field">> => Field
+                }
+            }
+        },
+        <<"_source">> => source(Query, false)
+    },
     do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
 search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
@@ -95,6 +107,9 @@ search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQu
     
     %% Return empty search result
     #search_result{};
+search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
+    [#{<<"options">> := Options}] = maps:get(hd(maps:keys(Suggest)), Suggest),
+    Options;
 search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
     %% From jsx 3.0+ or JSX_FORCE_MAPS is set
     #{<<"total">> := Total, <<"hits">> := Results} = Hits,
@@ -110,6 +125,14 @@ with_query_id(Query, Context) ->
             Query;
         QueryId ->
             zotonic_query_rsc:parse(QueryId, Context) ++ Query
+    end.
+
+source(Query, Default) ->
+    case proplists:get_value(source, Query) of
+        undefined ->
+            Default;
+        Fields ->
+            [z_convert:to_binary(Field) || Field <- Fields]
     end.
 
 %% @doc Map sort query arguments.
@@ -184,13 +207,6 @@ map_query({match_objects, Id}, Context) ->
             ]}
         ]}
     ]}]};
-
-map_query({suggest, Text}, _Context) ->
-    {true, [{suggest, [
-        {prefix, z_convert:to_binary(Text)},
-        {completion, [{field, suggest}]}
-    ]}]};
-
 map_query(_, _) ->
     false.
 
