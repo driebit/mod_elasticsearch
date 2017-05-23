@@ -34,7 +34,8 @@ map_rsc(Id, Context) ->
         [],
         Props
     ) ++
-    map_edges(Id, Context).
+    map_edges(Id, Context) ++
+    map_suggestion(Props, Context).
 
 map_location(Id, Context) ->
     case {m_rsc:p(Id, location_lat, Context), m_rsc:p(Id, location_lng, Context)} of
@@ -145,6 +146,11 @@ map_edge(Edge) ->
         {created, map_value(proplists:get_value(created, Edge))}
     ].
 
+map_suggestion(Props, Context) ->
+    [
+        {suggest, [default_translation(proplists:get_value(title, Props), Context)]}
+    ].
+
 %% Get a default Elasticsearch mapping for Zotonic resources
 -spec default_mapping(atom(), z:context()) -> {Hash :: binary(), Mapping :: map()}.
 default_mapping(resource, Context) ->
@@ -167,6 +173,9 @@ default_mapping(resource, Context) ->
             },
             <<"date_end">> => #{
                 <<"type">> => <<"date">>
+            },
+            <<"suggest">> => #{
+                <<"type">> => <<"completion">>
             }
         },
         <<"dynamic_templates">> => dynamic_language_mapping(Context)
