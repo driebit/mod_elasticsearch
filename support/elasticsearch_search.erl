@@ -20,12 +20,12 @@ search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) 
     do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Elasticsearch suggest completion query
 search(#search_query{search = {elastic_suggest, Query}, offsetlimit = Offset}, Context) ->
-    Prefix = z_convert:to_binary(proplists:get_value(suggest, Query)),
+    Text = z_convert:to_binary(z_string:trim(proplists:get_value(suggest, Query))),
     Field = z_convert:to_binary(proplists:get_value(field, Query, <<"suggest">>)),
     ElasticQuery = #{
         <<"suggest">> => #{
             <<"suggest">> => #{
-                <<"prefix">> => Prefix,
+                <<"text">> => filter_split:split(Text, <<" ">>, Context),
                 <<"completion">> => #{
                     <<"field">> => Field
                 }
