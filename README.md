@@ -69,6 +69,12 @@ atom):
 {filter, [<<"some_field">>, missing]}
 ````
 
+For a [match phrase prefix query](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query-phrase-prefix.html),
+use the `prefix` argument:
+
+```erlang
+z_search:search({query, [{prefix, <<"Match this pref">>}]}, Context).
+```
 
 Notifications
 -------------

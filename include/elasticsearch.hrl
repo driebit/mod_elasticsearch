@@ -5,5 +5,5 @@
 }).
 
 -record(elasticsearch_fields, {
-    query :: binary()
+    query :: binary() | map()
 }).

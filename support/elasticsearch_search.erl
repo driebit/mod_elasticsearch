@@ -175,10 +175,24 @@ map_query({text, Text}, Context) ->
         <<"_all">>,
         <<"title*^2">>
     ],
-    {true, [{multi_match, [
-        {query, Text},
-        {fields, z_notifier:foldr(#elasticsearch_fields{query = Text}, DefaultFields, Context)}
-    ]}]};
+    {true, #{<<"multi_match">> => #{
+        <<"query">> => Text,
+        <<"fields">> => z_notifier:foldr(#elasticsearch_fields{query = Text}, DefaultFields, Context)
+    }}};
+map_query({prefix, Prefix}, Context) when not is_binary(Prefix) ->
+    map_query({prefix, z_convert:to_binary(Prefix)}, Context);
+map_query({prefix, <<>>}, _Context) ->
+    false;
+map_query({prefix, Prefix}, Context) ->
+    {true, #{<<"multi_match">> => #{
+        <<"query">> => z_convert:to_binary(Prefix),
+        <<"type">> => <<"phrase_prefix">>,
+        <<"fields">> => z_notifier:foldr(
+            #elasticsearch_fields{query = #{<<"prefix">> => Prefix}},
+            [<<"title">>],
+            Context
+        )
+    }}};
 map_query({elastic_query, ElasticQuery}, _Context) ->
     case jsx:is_json(ElasticQuery) of
         true ->
