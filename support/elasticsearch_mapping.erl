@@ -147,9 +147,10 @@ map_edge(Edge) ->
     ].
 
 map_suggestion(Props, Context) ->
-    [
-        {suggest, [default_translation(proplists:get_value(title, Props), Context)]}
-    ].
+    case default_translation(proplists:get_value(title, Props), Context) of
+        <<>> -> [];
+        Title -> [{suggest, Title}]
+    end.
 
 %% Get a default Elasticsearch mapping for Zotonic resources
 -spec default_mapping(atom(), z:context()) -> {Hash :: binary(), Mapping :: map()}.
