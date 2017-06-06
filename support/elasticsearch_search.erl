@@ -377,11 +377,11 @@ map_must({hasobject, Object}, Context) ->
     map_must({hasobject, [Object, any]}, Context);
 map_must({hassubject, [Subject]}, Context) ->
     map_must({hassubject, Subject}, Context);
-map_must({hassubject, [Object, Predicate]}, Context) ->
+map_must({hassubject, [Subject, Predicate]}, Context) ->
     {true, #{<<"nested">> =>
         #{
             <<"path">> => <<"incoming_edges">>,
-            <<"query">> => map_incoming_edge(Predicate, [Object], Context)
+            <<"query">> => map_incoming_edge(Predicate, [Subject], Context)
         }
     }};
 map_must({hassubject, Object}, Context) ->
@@ -478,8 +478,8 @@ map_sort_property(<<"pivot_title">>) -> <<"pivot_title.keyword">>;
 map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
 
-map_incoming_edge(Predicate, Objects, Context) ->
-    map_edge(Predicate, Objects, <<"incoming_edges">>, Context).
+map_incoming_edge(Predicate, Subjects, Context) ->
+    map_edge(Predicate, Subjects, <<"incoming_edges">>, Context).
 
 map_outgoing_edge(Predicate, Objects, Context) ->
     map_edge(Predicate, Objects, <<"outgoing_edges">>, Context).
@@ -492,39 +492,47 @@ map_edge(any, [], _Path, _Context) ->
     #{};
 map_edge(any, [any], _Path, _Context) ->
     #{};
-map_edge(Predicate, Objects, Path, Context) when Objects =:= []; Objects =:= [any] ->
-    {ok, Id} = m_predicate:name_to_id(Predicate, Context),
+map_edge(Predicate, Ids, Path, Context) when Ids =:= []; Ids =:= [any] ->
     #{<<"bool">> => #{
         <<"must">> => [
-            #{<<"term">> =>
-                #{<<Path/binary, ".predicate_id">> => Id}
-            }
+            map_edge_predicate(Predicate, Path, Context)
         ]
     }};
-map_edge(any, Objects, Path, Context) ->
+map_edge(any, Ids, Path, Context) ->
     #{<<"bool">> => #{
         <<"must">> => [
-            #{<<"terms">> =>
-                #{<<Path/binary, ".object_id">> => map_edge_objects(Objects, Context)}
-            }
+            map_edge_ids(Path, Ids, Context)
         ]
     }};
-map_edge(Predicate, Objects, Path, Context) ->
-    {ok, Id} = m_predicate:name_to_id(Predicate, Context),
+map_edge(Predicate, Ids, Path, Context) ->
     #{<<"bool">> => #{
         <<"must">> => [
-            #{<<"terms">> =>
-                #{<<Path/binary, ".object_id">> => map_edge_objects(Objects, Context)}
-            },
-            #{<<"term">> =>
-                #{<<Path/binary, ".predicate_id">> => Id}
-            }
+            map_edge_ids(Path, Ids, Context),
+            map_edge_predicate(Predicate, Path, Context)
         ]
     }}.
 
-map_edge_objects(Objects, Context) ->
-    Ids = [m_rsc:rid(O, Context) || O <- Objects],
-    lists:filter(fun(Id) -> Id =/= undefined end, Ids).
+map_edge_ids(Path, Ids, Context) ->
+    case Path of
+        <<"incoming_edges">> -> 
+            #{<<"terms">> =>
+                #{<<Path/binary, ".subject_id">> => map_edge_objects(Ids, Context)}
+            };
+        <<"outgoing_edges">> -> 
+            #{<<"terms">> =>
+                #{<<Path/binary, ".object_id">> => map_edge_objects(Ids, Context)}
+            }
+    end.
+
+map_edge_predicate(Predicate, Path, Context) ->
+    {ok, Id} = m_predicate:name_to_id(Predicate, Context),
+    #{<<"term">> =>
+        #{<<Path/binary, ".predicate_id">> => Id}
+    }.
+
+map_edge_objects(Ids, Context) ->
+    Ids2 = [m_rsc:rid(O, Context) || O <- Ids],
+    lists:filter(fun(Id) -> Id =/= undefined end, Ids2).
 
 is_string_or_list(StringOrList) when is_list(StringOrList) ->
     case z_string:is_string(StringOrList) of
