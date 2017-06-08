@@ -19,22 +19,49 @@ search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Contex
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
     ElasticQuery = build_query(Query, Offset, Context),
     do_search(ElasticQuery, Query, Offset, Context);
+
 %% @doc Elasticsearch suggest completion query
 search(#search_query{search = {elastic_suggest, Query}, offsetlimit = Offset}, Context) ->
-    Prefix = z_convert:to_binary(proplists:get_value(suggest, Query)),
+    Text = z_string:trim(proplists:get_value(suggest, Query)),
+    Words = filter_split:split(Text, <<" ">>, Context),
+    Prefix = z_convert:to_binary(filter_last:last(Words, Context)),
     Field = z_convert:to_binary(proplists:get_value(field, Query, <<"suggest">>)),
+    Size = proplists:get_value(size, Query, 6),
     ElasticQuery = #{
         <<"suggest">> => #{
             <<"suggest">> => #{
                 <<"prefix">> => Prefix,
                 <<"completion">> => #{
-                    <<"field">> => Field
+                    <<"field">> => Field,
+                    <<"size">> => Size
                 }
             }
         },
         <<"_source">> => source(Query, false)
     },
     do_search(ElasticQuery, Query, Offset, Context);
+
+%% @doc Elasticsearch suggest "did you mean" query
+search(#search_query{search = {elastic_didyoumean, Query}, offsetlimit = Offset}, Context) ->
+    Text = z_string:trim(proplists:get_value(suggest, Query)),
+    Words = filter_split:split(Text, <<" ">>, Context),
+    Word = z_convert:to_binary(filter_last:last(Words, Context)),
+    Field = z_convert:to_binary(proplists:get_value(field, Query, <<"pivot_title">>)),
+    Size = proplists:get_value(size, Query, 1),
+    ElasticQuery = #{
+        <<"suggest">> => #{
+            <<"suggest">> => #{
+                <<"text">> => Word,
+                <<"term">> => #{
+                    <<"field">> => Field,
+                    <<"size">> => Size,
+                    <<"sort">> => <<"frequency">>
+                }
+            }
+        }
+    },
+    do_search(ElasticQuery, Query, Offset, Context);
+
 %% @doc Resource search query
 search(#search_query{} = Search, Context) ->
     search(Search, #elasticsearch_options{}, Context).
