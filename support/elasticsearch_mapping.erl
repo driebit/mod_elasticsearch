@@ -147,9 +147,28 @@ map_edge(Edge) ->
     ].
 
 map_suggestion(Props, Context) ->
-    case default_translation(proplists:get_value(title, Props), Context) of
-        <<>> -> [];
-        Title -> [{suggest, Title}]
+    Id = proplists:get_value(id, Props),
+    case m_rsc:is_a(Id, keyword, Context) of
+        true ->
+            Weight = length(m_edge:subjects(Id, Context)),
+            case default_translation(proplists:get_value(title, Props), Context) of
+                <<>> -> 
+                    [];
+                Title ->
+                    [{suggest, [
+                        {input, Title},
+                        {weight, Weight}
+                    ]}]
+            end;
+        false ->
+            ObjectTitles = lists:foldl(
+                fun(ObjectId, Acc) ->
+                    [default_translation(m_rsc:p(ObjectId, title, Context), Context) | Acc]
+                end,
+                [],
+                m_edge:objects(Id, subject, Context)
+            ),
+            [{keywords, ObjectTitles}]
     end.
 
 %% Get a default Elasticsearch mapping for Zotonic resources
@@ -176,7 +195,8 @@ default_mapping(resource, Context) ->
                 <<"type">> => <<"date">>
             },
             <<"suggest">> => #{
-                <<"type">> => <<"completion">>
+                <<"type">> => <<"completion">>,
+                <<"analyzer">> =>  <<"simple">>
             }
         },
         <<"dynamic_templates">> => dynamic_language_mapping(Context)
