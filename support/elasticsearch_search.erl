@@ -375,6 +375,7 @@ map_must({hasobject, [Object]}, Context) ->
     map_must({hasobject, Object}, Context);
 map_must({hasobject, Object}, Context) ->
     map_must({hasobject, [Object, any]}, Context);
+%% @doc hassubject: all resources that have an incoming edge from Subject.
 map_must({hassubject, [Subject]}, Context) ->
     map_must({hassubject, Subject}, Context);
 map_must({hassubject, [Subject, Predicate]}, Context) ->
@@ -384,8 +385,8 @@ map_must({hassubject, [Subject, Predicate]}, Context) ->
             <<"query">> => map_incoming_edge(Predicate, [Subject], Context)
         }
     }};
-map_must({hassubject, Object}, Context) ->
-    map_must({hasobject, [Object, any]}, Context);
+map_must({hassubject, Subject}, Context) ->
+    map_must({hassubject, [Subject, any]}, Context);
 map_must({hasanyobject, ObjectPredicates}, Context) ->
     Expanded = search_query:expand_object_predicates(ObjectPredicates, Context),
     OutgoingEdges = [map_outgoing_edge(Predicate, [Object], Context) || {Object, Predicate} <- Expanded],
