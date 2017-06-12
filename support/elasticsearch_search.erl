@@ -512,17 +512,14 @@ map_edge(Predicate, Ids, Path, Context) ->
         ]
     }}.
 
-map_edge_ids(Path, Ids, Context) ->
-    case Path of
-        <<"incoming_edges">> -> 
-            #{<<"terms">> =>
-                #{<<Path/binary, ".subject_id">> => map_edge_objects(Ids, Context)}
-            };
-        <<"outgoing_edges">> -> 
-            #{<<"terms">> =>
-                #{<<Path/binary, ".object_id">> => map_edge_objects(Ids, Context)}
-            }
-    end.
+map_edge_ids(<<"incoming_edges">>, Ids, Context) ->
+    #{<<"terms">> =>
+        #{<<"incoming_edges.subject_id">> => map_resources(Ids, Context)}
+    };
+map_edge_ids(<<"outgoing_edges">>, Ids, Context) ->
+    #{<<"terms">> =>
+        #{<<"outgoing_edges.object_id">> => map_resources(Ids, Context)}
+    }.
 
 map_edge_predicate(Predicate, Path, Context) ->
     {ok, Id} = m_predicate:name_to_id(Predicate, Context),
@@ -530,7 +527,8 @@ map_edge_predicate(Predicate, Path, Context) ->
         #{<<Path/binary, ".predicate_id">> => Id}
     }.
 
-map_edge_objects(Ids, Context) ->
+%% @doc Map edge subjects/objects, filtering out resources that do not exist.
+map_resources(Ids, Context) ->
     Ids2 = [m_rsc:rid(O, Context) || O <- Ids],
     lists:filter(fun(Id) -> Id =/= undefined end, Ids2).
 
