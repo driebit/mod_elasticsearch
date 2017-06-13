@@ -203,6 +203,16 @@ map_query({elastic_query, ElasticQuery}, _Context) ->
 map_query({query_id, Id}, Context) ->
     ElasticQuery = z_html:unescape(m_rsc:p(Id, <<"elastic_query">>, Context)),
     map_query({elastic_query, ElasticQuery}, Context);
+map_query({match_objects, ObjectIds}, Context) when is_list(ObjectIds) ->
+    Clauses = map_edge(any, ObjectIds, <<"outgoing_edges">>, Context),
+    {true, [{nested, [
+        {path, <<"outgoing_edges">>},
+        {query, [
+            {bool, [
+                {should, Clauses}
+            ]}
+        ]}
+    ]}]};
 map_query({match_objects, Id}, Context) ->
     %% Look up all outgoing edges of this resource
     Clauses = lists:map(
