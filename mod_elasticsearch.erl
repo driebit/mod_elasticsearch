@@ -10,7 +10,7 @@
 -export([
     pid_observe_rsc_pivot_done/3,
     pid_observe_rsc_delete/3,
-    pid_observe_search_query/3,
+    observe_search_query/2,
     init/1,
     handle_call/3,
     handle_cast/2,
@@ -34,8 +34,8 @@ pid_observe_rsc_pivot_done(Pid, Msg, _Context) ->
 pid_observe_rsc_delete(Pid, Msg, _Context) ->
     gen_server:cast(Pid, Msg).
 
-pid_observe_search_query(Pid, #search_query{} = Search, Context) ->
-    gen_server:call(Pid, {Search, Context}).
+observe_search_query(#search_query{} = Search, Context) ->
+    search(Search, Context).
 
 init(Args) ->
     application:ensure_all_started(erlastic_search),
