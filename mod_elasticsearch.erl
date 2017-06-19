@@ -18,7 +18,8 @@
     terminate/2,
     code_change/3,
     start_link/1,
-    manage_schema/2
+    manage_schema/2,
+    bulk_index/2
 ]).
 
 -include("zotonic.hrl").
@@ -62,13 +63,22 @@ manage_schema(_Version, _Context) ->
         ]
     }.
 
+bulk_index(Tasks, Context) ->
+    Ids = [Id || #task{data = Id} <- Tasks],
+    case elasticsearch:bulk(Ids, Context) of
+        {ok, _Items} ->
+            ok;
+        {error, _Reason} ->
+            retry
+    end.
+
 handle_call({#search_query{} = Search, Context}, _From, State) ->
     {reply, search(Search, Context), State};
 handle_call(Message, _From, State) ->
     {stop, {unknown_call, Message}, State}.
 
 handle_cast(#rsc_pivot_done{id = Id}, State = #state{context = Context}) ->
-    elasticsearch:put_doc(Id, Context),
+    z_queue:queue(#task{callback = {?MODULE, bulk_index}, data = Id, batch = 100}, Context),
     {noreply, State};
 handle_cast(#rsc_delete{id = Id}, State = #state{context = Context}) ->
     elasticsearch:delete_doc(Id, Context),
