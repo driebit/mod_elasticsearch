@@ -2,14 +2,15 @@
 -module(elasticsearch_search).
 
 -export([
-    search/2
+    search/2,
+    search/3
 ]).
 
 -include_lib("zotonic.hrl").
 -include_lib("../include/elasticsearch.hrl").
 
 %% @doc Convert Zotonic search query to an Elasticsearch query
--spec search(#search_query{}, z:context()) -> #search_result{}.
+-spec search(#search_query{}, z:context()) -> #search_result{} | undefined.
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
     %% Size defaults to 10.000 max
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
@@ -35,15 +36,53 @@ search(#search_query{search = {elastic_suggest, Query}, offsetlimit = Offset}, C
     },
     do_search(ElasticQuery, Query, Offset, Context);
 %% @doc Resource search query
-search(#search_query{search = {query, Query}, offsetlimit = Offset}, Context) ->
-    Query2 = with_query_id(Query, Context),
-    ElasticQuery = build_query(Query2, Offset, Context),
+search(#search_query{} = Search, Context) ->
+    search(Search, #elasticsearch_options{}, Context).
 
-    %% Optimize performance by not returning full source document
-    NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
-    #search_result{result = Items} = SearchResult = do_search(NoSourceElasticQuery, Query2, Offset, Context),
-    Ids = [id_to_integer(Item) || Item <- Items],
-    SearchResult#search_result{result = Ids}.
+-spec search(#search_query{}, #elasticsearch_options{}, z:context()) -> #search_result{} | undefined.
+search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Options, Context) when Size > 9999 ->
+    %% Size defaults to 10.000 max
+    %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
+    search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Options, Context);
+search(#search_query{search = {query, Query}, offsetlimit = Offset}, Options, Context) ->
+    ZotonicQuery = with_query_id(Query, Context),
+    case is_elasticsearch(ZotonicQuery, Options) of
+        true ->
+            ElasticQuery = build_query(ZotonicQuery, Offset, Context),
+            %% Optimize performance by not returning full source document
+            NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
+            #search_result{result = Items} = SearchResult =
+                do_search(NoSourceElasticQuery, ZotonicQuery, Offset, Context),
+            Ids = [id_to_integer(Item) || Item <- Items],
+            SearchResult#search_result{result = Ids};
+        false ->
+            undefined
+    end.
+
+%% @doc Should this query be executed against Elasticsearch?
+is_elasticsearch(_, #elasticsearch_options{fallback = false}) ->
+    %% No fallback: execute all queries against Elasticsearch
+    true;
+is_elasticsearch(ZotonicQuery, #elasticsearch_options{fallback = true}) ->
+    %% With fallback to PostgreSQL: see if we can execute this query against
+    %% PostgreSQL
+    is_elasticsearch_props(ZotonicQuery).
+
+%% @doc Must Elasticsearch be consulted for this property?
+%%      - text/prefix: all fulltext searches go through Elasticsearch
+%%      - filter: this can be a filter on a custom property for which no custom
+%%        pivot is defined in PostgreSQL.
+-spec is_elasticsearch_props(atom()) -> boolean().
+is_elasticsearch_props([]) ->
+    false;
+is_elasticsearch_props([{text, _} | _]) ->
+    true;
+is_elasticsearch_props([{prefix, _} | _]) ->
+    true;
+is_elasticsearch_props([{filter, _} | _]) ->
+    true;
+is_elasticsearch_props([_Prop | List]) ->
+    is_elasticsearch_props(List).
 
 id_to_integer(#{<<"_id">> := Id}) ->
     %% JSX 3.0+

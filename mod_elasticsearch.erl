@@ -22,6 +22,7 @@
 ]).
 
 -include("zotonic.hrl").
+-include("include/elasticsearch.hrl").
 
 -record(state, {context}).
 
@@ -91,7 +92,8 @@ search(#search_query{search = {elastic, _Query}} = Search, Context) ->
 search(#search_query{search = {elastic_suggest, _Query}} = Search, Context) ->
     elasticsearch_search:search(Search, Context);
 search(#search_query{search = {query, _Query}} = Search, Context) ->
-    elasticsearch_search:search(Search, Context);
+    Options = #elasticsearch_options{fallback = true},
+    elasticsearch_search:search(Search, Options, Context);
 search(_Search, _Context) ->
     undefined.
 
