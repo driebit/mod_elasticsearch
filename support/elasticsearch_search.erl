@@ -413,6 +413,17 @@ map_must({filter, [Key, Operator, Value, Options]}, _Context)
     %% Example: {filter, [<<"dcterms:date">>, <<"gte">>, 2016, [{<<"format">>, <<"yyyy">>}]]}
     Arguments = [{Operator, z_convert:to_binary(Value)} | Options],
     {true, [{range, [{Key, Arguments}]}]};
+map_must({filter, [Key, Operator, Value, #{<<"path">> := Path}]}, Context) ->
+    {true, Query} = (map_must({filter, [Key, Operator, Value]}, Context)),
+    Nested = #{
+        <<"nested">> => #{
+            <<"path">> => Path,
+            <<"query">> => Query
+        }
+    },
+    {true, Nested};
+map_must({filter, [Key, Operator, Value, _]}, _Context) when Operator =:= <<"=">>; Operator =:= <<"eq">> ->
+    {true, #{<<"term">> => #{Key => z_convert:to_binary(Value)}}};
 map_must({hasobject, [Object, Predicate]}, Context) ->
     {true, #{<<"nested">> =>
         #{
