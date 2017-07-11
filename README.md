@@ -76,6 +76,12 @@ use the `prefix` argument:
 z_search:search({query, [{prefix, <<"Match this pref">>}]}, Context).
 ```
 
+To exclude a document:
+
+```erlang
+{exclude_document, [Type, Id]}
+```
+
 Notifications
 -------------
 
