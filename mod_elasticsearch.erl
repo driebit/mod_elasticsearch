@@ -18,7 +18,8 @@
     terminate/2,
     code_change/3,
     start_link/1,
-    manage_schema/2
+    manage_schema/2,
+    observe_elasticsearch_put/3
 ]).
 
 -include("zotonic.hrl").
@@ -85,6 +86,28 @@ code_change(_OldVsn, State, _Extra) ->
 
 terminate(_Reason, _State) ->
     ok.
+
+%% @doc When the resource is a keyword, add its title to the suggest completion field.
+-spec observe_elasticsearch_put(#elasticsearch_put{}, [], z:context()) -> proplist:list().
+observe_elasticsearch_put(#elasticsearch_put{type = <<"resource">>, id = Id}, Data, Context) ->
+    case m_rsc:is_a(Id, keyword, Context) of
+        true ->
+            case elasticsearch_mapping:default_translation(m_rsc:p(Id, title, Context), Context) of
+                <<>> ->
+                    Data;
+                Title ->
+                    %% Assume good keywords are linked more often than erratic ones.
+                    Weight = length(m_edge:subjects(z_convert:to_integer(Id), Context)),
+                    [{suggest, [
+                        {input, Title},
+                        {weight, Weight}
+                    ]} | Data]
+            end;
+        false ->
+            Data
+    end;
+observe_elasticsearch_put(_, Data, _) ->
+    Data.
 
 %% @doc Only handle 'elastic' and 'query' search types
 search(#search_query{search = {elastic, _Query}} = Search, Context) ->
