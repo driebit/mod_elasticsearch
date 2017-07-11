@@ -5,11 +5,12 @@
 -export([
     connection/0,
     index/1,
+    put_mapping/3,
+    put_mapping/4,
     put_doc/2,
     put_doc/3,
     put_doc/5,
-    put_mapping/3,
-    put_mapping/4,
+    bulk/2,
     delete_doc/2,
     delete_doc/3,
     handle_response/1
@@ -45,18 +46,38 @@ put_mapping(Index, Type, Doc, _Context) ->
     handle_response(Response).
 
 %% Save a resource to Elasticsearch
+put_doc({Index, Type, Id, Data}, _Context) ->
+    Response = erlastic_search:index_doc_with_id(Index, z_convert:to_binary(Type), z_convert:to_binary(Id), Data),
+    handle_response(Response);
 put_doc(Id, Context) ->
-    put_doc(index(Context), Id, Context).
+    put_doc(map_doc(Id, Context), Context).
 
 put_doc(Index, Id, Context) ->
-    % All resource properties
-    Props = elasticsearch_mapping:map_rsc(Id, Context),
-    put_doc(Index, <<"resource">>, z_convert:to_binary(Id), Props, Context).
+    put_doc(map_doc(Index, Id, Context), Context).
 
 put_doc(Index, Type, Id, Data, Context) ->
-    NotifiedData = z_notifier:foldl(#elasticsearch_put{index = Index, type = Type, id = Id}, Data, Context),
-    Response = erlastic_search:index_doc_with_id(Index, Type, Id, NotifiedData),
+    put_doc(map_doc(Index, Type, Id, Data, Context), Context).
+
+-spec bulk([m_rsc:resource()], z:context()) -> {ok, list()} | {error, any()}.
+bulk(Ids, Context) ->
+    Docs = [map_doc(Id, Context) || Id <- Ids],
+    Response = erlastic_search:bulk_index_docs(connection(), Docs),
     handle_response(Response).
+    
+map_doc(Id, Context) ->
+    map_doc(index(Context), Id, Context).
+
+map_doc(Index, Id, Context) ->
+    map_doc(Index, <<"resource">>, Id, Context).
+
+map_doc(Index, Type, Id, Context) ->
+    map_doc(Index, Type, Id, elasticsearch_mapping:map_rsc(Id, Context), Context).
+
+-spec map_doc(binary(), binary(), binary(), lists:proplist() | map(), z:context()) ->
+    {binary(), binary(), binary(), lists:proplist() | map()}.
+map_doc(Index, Type, Id, Data, Context) ->
+    Data2 = z_notifier:foldl(#elasticsearch_put{index = Index, type = Type, id = Id}, Data, Context),
+    {Index, Type, Id, Data2}.
 
 delete_doc(Id, Context) ->
     delete_doc(Id, index(Context), Context).
@@ -80,7 +101,8 @@ handle_response(Response) ->
             lager:error(
                 "Elasticsearch error: ~p with connection ~p",
                 [Reason, connection()]
-            );
+            ),
+            Response;
         {ok, _} ->
             Response
     end.
