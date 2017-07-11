@@ -8,10 +8,12 @@
     map_rsc/2,
     default_mapping/2,
     hash/1,
-    dynamic_language_mapping/1
+    dynamic_language_mapping/1,
+    default_translation/2
 ]).
 
 %% Map a Zotonic resource
+-spec map_rsc(m_rsc:rid(), z:context()) -> lists:proplist().
 map_rsc(Id, Context) ->
     Props = m_rsc:get(Id, Context),
     [
@@ -34,8 +36,7 @@ map_rsc(Id, Context) ->
         [],
         Props
     ) ++
-    map_edges(Id, Context) ++
-    map_suggestion(Props, Context).
+    map_edges(Id, Context).
 
 map_location(Id, Context) ->
     case {m_rsc:p(Id, location_lat, Context), m_rsc:p(Id, location_lng, Context)} of
@@ -145,31 +146,6 @@ map_edge(Edge) ->
         {object_id, proplists:get_value(object_id, Edge)},
         {created, map_value(proplists:get_value(created, Edge))}
     ].
-
-map_suggestion(Props, Context) ->
-    Id = proplists:get_value(id, Props),
-    case m_rsc:is_a(Id, keyword, Context) of
-        true ->
-            Weight = length(m_edge:subjects(Id, Context)),
-            case default_translation(proplists:get_value(title, Props), Context) of
-                <<>> -> 
-                    [];
-                Title ->
-                    [{suggest, [
-                        {input, Title},
-                        {weight, Weight}
-                    ]}]
-            end;
-        false ->
-            ObjectTitles = lists:foldl(
-                fun(ObjectId, Acc) ->
-                    [default_translation(m_rsc:p(ObjectId, title, Context), Context) | Acc]
-                end,
-                [],
-                m_edge:objects(Id, subject, Context)
-            ),
-            [{keywords, ObjectTitles}]
-    end.
 
 %% Get a default Elasticsearch mapping for Zotonic resources
 -spec default_mapping(atom(), z:context()) -> {Hash :: binary(), Mapping :: map()}.
