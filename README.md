@@ -51,6 +51,17 @@ such as:
 z_search:search({query, [{hasobject, 507}]}, Context).
 ````
 
+### Query context filters
+
+The `filter` search argument that you know from Zotonic will be used in
+Elasticsearch’s [filter context](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-filter-context.html).
+To add filters that influence score (ranking), use the `query_context_filter`
+instead. The syntax is identical to that of `filter`:
+
+```erlang
+z_search:search({query, [{query_context_filter, [["some_field", "value"]]}]}, Context).
+```
+
 ### Extra query arguments
 
 This module adds some extra query arguments on top of Zotonic’s default ones.

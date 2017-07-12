@@ -95,10 +95,10 @@ is_elasticsearch(ZotonicQuery, #elasticsearch_options{fallback = true}) ->
     %% PostgreSQL
     is_elasticsearch_props(ZotonicQuery).
 
-%% @doc Must Elasticsearch be consulted for this property?
+%% @doc Must Elasticsearch be consulted for these properties?
 %%      - text/prefix: all fulltext searches go through Elasticsearch
-%%      - filter: this can be a filter on a custom property for which no custom
-%%        pivot is defined in PostgreSQL.
+%%      - filter/query_context_filter: this can be a filter on a custom property
+%%        for which no custom pivot is defined in PostgreSQL.
 -spec is_elasticsearch_props(atom()) -> boolean().
 is_elasticsearch_props([]) ->
     false;
@@ -107,6 +107,8 @@ is_elasticsearch_props([{text, _} | _]) ->
 is_elasticsearch_props([{prefix, _} | _]) ->
     true;
 is_elasticsearch_props([{filter, _} | _]) ->
+    true;
+is_elasticsearch_props([{query_context_filter, _} | _]) ->
     true;
 is_elasticsearch_props([_Prop | List]) ->
     is_elasticsearch_props(List).
@@ -297,6 +299,9 @@ map_query({match_objects, Id}, Context) ->
             ]}
         ]}
     ]}]};
+map_query({query_context_filter, Filter}, Context) ->
+    %% Query context filters
+    map_filter(Filter, Context);
 map_query(_, _) ->
     false.
 
@@ -404,60 +409,8 @@ map_must({content_group, undefined}, _Context) ->
     false;
 map_must({content_group, Id}, Context) ->
     {true, [{term, [{content_group_id, m_rsc:rid(Id, Context)}]}]};
-%% TODO Add support for other filter types
-%% http://docs.zotonic.com/ en/latest/developer-guide/search.html#filter
-%% Use regular fields where Zotonic uses pivot_ fields
-%% @see z_pivot_rsc:pivot_resourcesource/2
-map_must({filter, [[Key | _] | _] = Filters}, Context) when is_list(Key); is_binary(Key); is_atom(Key) ->
-    %% Multiple filters: OR
-    OrFilters = lists:filtermap(fun(Filter) -> map_must({filter, Filter}, Context) end, Filters),
-    AllFilters = case lists:filtermap(fun(Filter) -> map_must_not({filter, Filter}, Context) end, Filters) of
-        [] ->
-            OrFilters;
-        OrNotFilters ->
-            OrFilters ++ [
-                #{<<"bool">> => #{
-                    <<"must_not">> => OrNotFilters
-                }}
-            ]
-    end,
-    {true, #{<<"bool">> => #{
-        <<"should">> => AllFilters
-    }}};
-map_must({filter, [Key, Value]}, Context) when is_list(Key) ->
-    map_must({filter, [list_to_binary(Key), Value]}, Context);
-map_must({filter, [<<"pivot_", _/binary>> = Pivot, Value]}, Context) ->
-    map_must({filter, [map_pivot(Pivot), Value]}, Context);
-map_must({filter, [<<"is_", _/binary>> = Key, Value]}, _Context) ->
-    %% Map boolean fields (is_*)
-    {true, [{term, [{Key, z_convert:to_bool(Value)}]}]};
-map_must({filter, [Key, exists]}, _Context) ->
-    {true, [{<<"exists">>, [{field, Key}]}]};
-map_must({filter, [Key, Value]}, _Context) when Value =/= missing ->
-    {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
-map_must({filter, [Key, Operator, Value]}, Context) when is_list(Key); not is_binary(Operator) ->
-    map_must({filter, [z_convert:to_binary(Key), z_convert:to_binary(Operator), Value]}, Context);
-map_must({filter, [Key, <<">">>, Value]}, _Context) ->
-    map_must({filter, [Key, <<"gt">>, Value]}, _Context);
-map_must({filter, [Key, Operator, Value]}, Context) ->
-    map_must({filter, [Key, Operator, Value, []]}, Context);
-map_must({filter, [Key, Operator, Value, Options]}, _Context)
-    when Operator =:= <<"gte">>; Operator =:= <<"gt">>; Operator =:= <<"lte">>; Operator =:= <<"lt">>
-->
-    %% Example: {filter, [<<"dcterms:date">>, <<"gte">>, 2016, [{<<"format">>, <<"yyyy">>}]]}
-    Arguments = [{Operator, z_convert:to_binary(Value)} | Options],
-    {true, [{range, [{Key, Arguments}]}]};
-map_must({filter, [Key, Operator, Value, #{<<"path">> := Path}]}, Context) ->
-    {true, Query} = (map_must({filter, [Key, Operator, Value]}, Context)),
-    Nested = #{
-        <<"nested">> => #{
-            <<"path">> => Path,
-            <<"query">> => Query
-        }
-    },
-    {true, Nested};
-map_must({filter, [Key, Operator, Value, _]}, _Context) when Operator =:= <<"=">>; Operator =:= <<"eq">> ->
-    {true, #{<<"term">> => #{Key => z_convert:to_binary(Value)}}};
+map_must({filter, Filters}, Context) ->
+    map_filter(Filters, Context);
 map_must({hasobject, [Object, Predicate]}, Context) ->
     {true, #{<<"nested">> =>
         #{
@@ -621,6 +574,69 @@ map_edge_predicate(Predicate, Path, Context) ->
     #{<<"term">> =>
         #{<<Path/binary, ".predicate_id">> => Id}
     }.
+
+%% @doc Map a filter search argument.
+-spec map_filter(list() | binary(), z:context()) -> {true, map()} | false.
+%% http://docs.zotonic.com/ en/latest/developer-guide/search.html#filter
+%% Use regular fields where Zotonic uses pivot_ fields
+map_filter([[Key | _] | _] = Filters, Context) when is_list(Key); is_binary(Key); is_atom(Key) ->
+    %% Multiple filters: OR
+    OrFilters = lists:filtermap(fun(Filter) -> map_filter(Filter, Context) end, Filters),
+    AllFilters = case lists:filtermap(fun(Filter) -> map_must_not({filter, Filter}, Context) end, Filters) of
+        [] ->
+            OrFilters;
+        OrNotFilters ->
+            OrFilters ++ [
+                #{<<"bool">> => #{
+                    <<"must_not">> => OrNotFilters
+                }}
+            ]
+    end,
+    {true, #{<<"bool">> => #{
+        <<"should">> => AllFilters
+    }}};
+map_filter([Key, Value], Context) when is_list(Key) ->
+    map_filter([list_to_binary(Key), Value], Context);
+map_filter([<<"pivot_", _/binary>> = Pivot, Value], Context) ->
+    map_filter([map_pivot(Pivot), Value], Context);
+map_filter([<<"is_", _/binary>> = Key, Value], _Context) ->
+    {true, #{<<"term">> => #{Key => z_convert:to_bool(Value)}}};
+map_filter([Key, exists], _Context) ->
+    {true, #{<<"exists">> => #{<<"field">> => Key}}};
+map_filter([Key, Value], _Context) when Value =/= missing ->
+    {true, #{<<"term">> => #{Key => z_convert:to_binary(Value)}}};
+map_filter([Key, Value, Options], Context) when is_map(Options) ->
+    map_filter([Key, <<"eq">>, Value, Options], Context);
+map_filter([Key, Operator, Value], Context) ->
+    map_filter([Key, Operator, Value, #{}], Context);
+map_filter([Key, Operator, Value, Options], Context) when is_list(Key); not is_binary(Operator) ->
+    map_filter([z_convert:to_binary(Key), z_convert:to_binary(Operator), Value, Options], Context);
+map_filter([Key, Operator, Value, Options], Context) when is_list(Options) ->
+    map_filter([Key, Operator, Value, maps:from_list(Options)], Context);
+map_filter([Key, <<">">>, Value, Options], Context) ->
+    map_filter([Key, <<"gt">>, Value, Options], Context);
+map_filter([Key, Operator, Value, Options], _Context)
+    when Operator =:= <<"gte">>; Operator =:= <<"gt">>; Operator =:= <<"lte">>; Operator =:= <<"lt">>
+->
+    %% Example: {filter, [<<"dcterms:date">>, <<"gte">>, 2016, [{<<"format">>, <<"yyyy">>}]]}
+    {true, #{<<"range">> => #{
+        Key => Options#{Operator => Value}
+    }}};
+map_filter([Key, Operator, Value, #{<<"path">> := Path}], Context) ->
+    {true, Query} = map_filter([Key, Operator, Value], Context),
+    Nested = #{
+        <<"nested">> => #{
+            <<"path">> => Path,
+            <<"query">> => Query
+        }
+    },
+    {true, Nested};
+map_filter([Key, Operator, Value, Options], _Context) when Operator =:= <<"=">>; Operator =:= <<"eq">> ->
+    {true, #{<<"term">> => #{
+        Key => Options#{<<"value">> => z_convert:to_binary(Value)}
+    }}};
+map_filter(undefined, _Context) ->
+    false.
 
 %% @doc Map edge subjects/objects, filtering out resources that do not exist.
 map_resources(Ids, Context) ->
