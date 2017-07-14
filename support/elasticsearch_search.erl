@@ -635,7 +635,9 @@ map_filter([Key, Operator, Value, Options], _Context) when Operator =:= <<"=">>;
     {true, #{<<"term">> => #{
         Key => Options#{<<"value">> => z_convert:to_binary(Value)}
     }}};
-map_filter(undefined, _Context) ->
+map_filter(_Filter, _Context) ->
+    %% Fall through for '<>'/'ne' (handled in map_must_not) and undefined
+    %% filters (nothing to be done)
     false.
 
 %% @doc Map edge subjects/objects, filtering out resources that do not exist.
