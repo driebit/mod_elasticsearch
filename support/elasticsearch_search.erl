@@ -172,7 +172,7 @@ search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQu
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
         [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
     ),
-
+    
     %% Return empty search result
     #search_result{};
 search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
@@ -222,10 +222,6 @@ map_sort({match_objects, _Id}, _Context) ->
 
     ]};
 map_sort({sort, Property}, Context) ->
-    map_sort(Property, <<"asc">>, Context);
-map_sort({zsort, <<"-", Property/binary>>}, Context) ->
-    map_sort(Property, <<"desc">>, Context);
-map_sort({zsort, <<"+", Property/binary>>}, Context) ->
     map_sort(Property, <<"asc">>, Context);
 map_sort(_, _) ->
     false.
@@ -345,8 +341,7 @@ map_must({cat, []}, _Context) ->
     false;
 map_must({cat, Name}, Context) ->
     Cats = parse_categories(Name),
-    Cats1 = assure_categories(Cats, Context),
-    case filter_categories(Cats1, Context) of
+    case filter_categories(Cats, Context) of
         [] ->
             false;
         Filtered ->
@@ -481,115 +476,20 @@ map_aggregation(_, Map, _) ->
     Map.
 
 %% @doc Filter out empty category values (<<>>, undefined) and non-existing categories
-%% copied from mod_search/support/search_query.erlang
-%% TODO export this in zotonic
 -spec filter_categories(list(), z:context()) -> list(binary()).
 filter_categories(Cats, Context) ->
-    Cats1 = assure_categories(Cats, Context),
     lists:filtermap(
         fun(Category) ->
             case m_category:name_to_id(Category, Context) of
-                {ok, Id} ->
-                    {true, Id};
+                {ok, _Id} ->
+                    {true, z_convert:to_binary(Category)};
                 _ ->
                     false
             end
         end,
-        Cats1
+        Cats
     ).
 
-%% Make sure the input is a list of valid categories.
-assure_categories(Name, Context) ->
-    Cats = case {z_string:is_string(Name), is_binary(Name)} of
-               {true, false} -> [iolist_to_binary(Name)];
-               {_, true} -> [Name];
-               _ -> Name
-           end,
-    Cats1 = assure_cat_flatten(Cats),
-    lists:foldl(fun(C, Acc) ->
-                        case assure_category(C, Context) of
-                            undefined -> Acc;
-                            error -> ['$error'|Acc];
-                            {ok, N} -> [N|Acc]
-                        end
-                end,
-                [],
-                Cats1).
-
-%% Flatten eventual lists of categories
-assure_cat_flatten(Name) when not is_list(Name) ->
-    assure_cat_flatten([Name]);
-assure_cat_flatten(Names) when is_list(Names) ->
-    lists:flatten([
-                     case is_list(N) of
-                         true ->
-                             case z_string:is_string(N) of
-                                 true -> iolist_to_binary(N);
-                                 false -> assure_cat_flatten(N)
-                             end;
-                         false ->
-                             N
-                     end
-                     || N <- Names]).
-
-%% Make sure the given name is a category.
-assure_category([], _) -> undefined;
-assure_category(<<>>, _) -> undefined;
-assure_category(undefined, _) -> undefined;
-assure_category([$'|_] = Name, Context) ->
-    case lists:last(Name) of
-        $' -> assure_category_1(z_string:trim(Name, $'), Context);
-        _ -> assure_category_1(Name, Context)
-    end;
-assure_category([$"|_] = Name, Context) ->
-    case lists:last(Name) of
-        $" -> assure_category_1(z_string:trim(Name, $"), Context);
-        _ -> assure_category_1(Name, Context)
-    end;
-assure_category(<<$', _/binary>> = Name, Context) ->
-    case binary:last(Name) of
-        $' -> assure_category_1(z_string:trim(Name, $'), Context);
-        _ -> assure_category_1(Name, Context)
-    end;
-assure_category(<<$", _/binary>> = Name, Context) ->
-    case binary:last(Name) of
-        $" -> assure_category_1(z_string:trim(Name, $"), Context);
-        _ -> assure_category_1(Name, Context)
-    end;
-assure_category(Name, Context) ->
-    assure_category_1(Name, Context).
-
-assure_category_1(Name, Context) ->
-    case m_category:name_to_id(Name, Context) of
-        {ok, _Id} ->
-            {ok, Name};
-        _ ->
-            case m_rsc:rid(Name, Context) of
-                undefined ->
-                    lager:warning("Query: unknown category '~p'", [Name]),
-                    display_error([ ?__("Unknown category", Context), 32, $", z_html:escape(z_convert:to_binary(Name)), $" ], Context),
-                    error;
-                CatId ->
-                    case m_category:id_to_name(CatId, Context) of
-                        undefined ->
-                            lager:warning("Query: '~p' is not a category", [Name]),
-                            display_error([ $", z_html:escape(z_convert:to_binary(Name)), $", 32, ?__("is not a category", Context) ], Context),
-                            error;
-                        Name1 ->
-                            {ok, Name1}
-                    end
-            end
-    end.
-
-%% If the current user is an administrator or editor, show an error message about this search
-display_error(Msg, Context) ->
-    case z_acl:is_allowed(use, mod_admin, Context) of
-        true ->
-            ContextPruned = z_context:prune_for_async(Context),
-            z_session_page:add_script(z_render:growl_error(Msg, ContextPruned));
-        false ->
-            ok
-    end.
 
 %% @doc Map pivot column name to regular property name.
 %% @see z_pivot_rsc:pivot_resource/2
