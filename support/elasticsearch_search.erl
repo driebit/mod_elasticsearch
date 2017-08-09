@@ -172,7 +172,7 @@ search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQu
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
         [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
     ),
-    
+
     %% Return empty search result
     #search_result{};
 search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
@@ -480,11 +480,20 @@ map_aggregation(_, Map, _) ->
 filter_categories(Cats, Context) ->
     lists:filtermap(
         fun(Category) ->
-            case m_category:name_to_id(Category, Context) of
-                {ok, _Id} ->
-                    {true, z_convert:to_binary(Category)};
-                _ ->
-                    false
+            CategoryName = case Category of
+                {CatId} ->
+                    m_rsc:p_no_acl(CatId, name, Context);
+                CatId when is_integer(CatId) ->
+                    m_rsc:p_no_acl(CatId, name, Context);
+                CatName ->
+                    case m_category:name_to_id(CatName, Context) of
+                        {ok, _Id} -> CatName;
+                        _ -> undefined
+                    end
+            end,
+            case CategoryName of
+                undefined -> false;
+                _ -> {true, z_convert:to_binary(CategoryName)}
             end
         end,
         Cats
