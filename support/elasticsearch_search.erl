@@ -172,7 +172,7 @@ search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQu
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
         [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
     ),
-    
+
     %% Return empty search result
     #search_result{};
 search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
@@ -222,6 +222,10 @@ map_sort({match_objects, _Id}, _Context) ->
 
     ]};
 map_sort({sort, Property}, Context) ->
+    map_sort(Property, <<"asc">>, Context);
+map_sort({zsort, <<"-", Property/binary>>}, Context) ->
+    map_sort(Property, <<"desc">>, Context);
+map_sort({zsort, <<"+", Property/binary>>}, Context) ->
     map_sort(Property, <<"asc">>, Context);
 map_sort(_, _) ->
     false.
