@@ -116,7 +116,7 @@ index_exists(Index) ->
         Connection#erls_params.http_client_options
     ),
     case Response of
-        {error, {404, _}} ->
+        {error, _} ->
             false;
         {ok, _} ->
             true
