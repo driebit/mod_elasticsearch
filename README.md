@@ -93,6 +93,27 @@ To exclude a document:
 {exclude_document, [Type, Id]}
 ```
 
+To supply a custom [`function_score`](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html) 
+clause, supply one or more `score_function`s. For instance, to rank recent
+articles above older ones:
+
+```erlang
+z_search:search(
+    {query, [
+        {text, "Search this"},
+        {score_function, #{
+            <<"filter">> => [{cat, "article"}],
+            <<"exp">> => #{
+                <<"publication_start">> => #{
+                    <<"scale">> => <<"30d">>
+                }
+            }
+        }}
+    ]},
+    Context
+).
+```
+
 Notifications
 -------------
 

@@ -110,6 +110,8 @@ is_elasticsearch_props([{filter, _} | _]) ->
     true;
 is_elasticsearch_props([{query_context_filter, _} | _]) ->
     true;
+is_elasticsearch_props([{score_function, _} | _]) ->
+    true;
 is_elasticsearch_props([_Prop | List]) ->
     is_elasticsearch_props(List).
 
@@ -127,18 +129,38 @@ build_query(Query, {From, Size}, Context) ->
         <<"size">> => Size,
         <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
         <<"query">> => #{
-            <<"bool">> => #{
-                <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
-                <<"filter">> => #{
+            <<"function_score">> => #{
+                <<"query">> => #{
                     <<"bool">> => #{
-                        <<"must">> => lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query),
-                        <<"must_not">> => lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query)
+                        <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
+                        <<"filter">> => build_filter(Query, Context)
                     }
-                }
+                },
+                <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Q, Context) end, Query)
             }
         },
         <<"aggregations">> => lists:foldl(fun(Arg, Acc) -> map_aggregation(Arg, Acc, Context) end, #{}, Query)
     }.
+
+%% @doc Build filter clause
+build_filter(Query, Context) ->
+    #{
+        <<"bool">> => #{
+            <<"must">> => lists:filtermap(fun(Q) -> map_must(Q, Context) end, Query),
+            <<"must_not">> => lists:filtermap(fun(Q) -> map_must_not(Q, Context) end, Query)
+        }
+    }.
+
+%% @doc Map custom score function (function_score).
+-spec map_score_function({atom(), list() | map()}, z:context()) -> {true, _} | false.
+map_score_function({score_function, Function}, Context) when is_list(Function) ->
+    map_score_function({score_function, maps:from_list(Function)}, Context);
+map_score_function({score_function, #{<<"filter">> := Filter} = Function}, Context) ->
+    {true, Function#{<<"filter">> => build_filter(Filter, Context)}};
+map_score_function({score_function, Function}, _Context) ->
+    {true, Function};
+map_score_function(_, _Context) ->
+    false.
 
 -spec do_search(map(), proplists:proplist(), {pos_integer(), pos_integer()}, z:context()) -> #search_result{}.
 do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
