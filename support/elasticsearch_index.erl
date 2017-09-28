@@ -20,20 +20,37 @@ upgrade(Index, TypeMappings, Version, _Context) ->
     VersionedIndex = versioned_index(Index, Version),
     case index_exists(VersionedIndex) of
         true ->
-            nop;
+            %% Even if the index already exists, try to create new types in case
+            %% any were added. Adding types (instead of updating them) does not
+            %% require a reindex.
+            maybe_create_types(VersionedIndex, TypeMappings);
         false ->
             {ok, _} = create_index(VersionedIndex),
-            
-            lists:foreach(
-                fun({Type, Mappings}) ->
-                    {ok, _} = erlastic_search:put_mapping(VersionedIndex, Type, Mappings)
-                end,
-                TypeMappings
-            ),
-            
+            maybe_create_types(VersionedIndex, TypeMappings),
             maybe_reindex(Index, VersionedIndex),
             {ok, _Response2} = update_alias(Index, VersionedIndex),
             ok
+    end.
+
+%% @doc Create new type mappings if they don't exist already.
+-spec maybe_create_types(binary(), [{Type :: binary(), Mappings :: map()}]) -> ok.
+maybe_create_types(VersionedIndex, TypeMappings) ->
+    lists:foreach(
+        fun({Type, Mappings}) ->
+            maybe_create_type(VersionedIndex, Type, Mappings)
+        end,
+        TypeMappings
+    ).
+
+%% @doc Create a new type mapping if it doesn't exist already.
+-spec maybe_create_type(binary(), binary(), {Type :: binary(), Mappings :: map()}) -> ok.
+maybe_create_type(Index, Type, Mappings) ->
+    case type_exists(Index, Type) of
+        true ->
+            %% Don't try to change existing types.
+            ok;
+        false ->
+            {ok, _} = erlastic_search:put_mapping(Index, Type, Mappings)
     end.
 
 %% @doc Populate the new index with data from the previous index, but only if
@@ -97,27 +114,35 @@ ensure_index(Index) ->
             ok
     end.
 
-%% Create Elasticsearch index
+%% @doc Create Elasticsearch index
 -spec create_index(string()) -> string().
 create_index(Index) ->
     lager:info("mod_elasticsearch: creating index ~s", [Index]),
     Response = erlastic_search:create_index(elasticsearch:connection(), Index),
     elasticsearch:handle_response(Response).
 
-%% Check if index exists
+%% @doc Check if index exists.
 -spec index_exists(binary()) -> boolean().
 index_exists(Index) ->
+    url_exists(Index).
+
+%% @doc Check if type exists.
+-spec type_exists(binary(), binary()) -> boolean().
+type_exists(Index, Type) ->
+    url_exists(<<Index/binary, "/_mapping", Type/binary>>).
+
+url_exists(Url) ->
     Connection = elasticsearch:connection(),
-    Response = erls_resource:get(
+    Response = erls_resource:head(
         Connection,
-        Index,
+        Url,
         [],
         [],
         Connection#erls_params.http_client_options
     ),
     case Response of
-        {error, {404, _}} ->
+        {error, 404} ->
             false;
-        {ok, _} ->
+        ok ->
             true
     end.
