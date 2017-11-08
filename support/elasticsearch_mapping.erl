@@ -77,6 +77,10 @@ map_property({Key, Value}) ->
                         fun({LangCode, Translation}) ->
                             %% Change keys to contain language code: title_en etc.
                             LangKey = get_language_property(Key, LangCode),
+
+                            % Strip HTML tags from translated props. This is
+                            % only needed for body, but won't hurt the other
+                            % translated props.
                             {LangKey, z_html:strip(Translation)}
                         end,
                         Translations
@@ -102,16 +106,6 @@ map_value({{Y, M, D}, {H, I, S}} = DateTime) when
 map_value({{_, _, _}, {_, _, _}}) ->
     %% Invalid date
     null;
-map_value({trans, Translations}) ->
-    lists:map(
-        % Strip HTML tags from translated props. This is only needed for body,
-        % but won't hurt the other translated props.
-        %
-        fun({LangCode, Translation}) ->
-            {LangCode, z_html:strip(Translation)}
-        end,
-        Translations
-    );
 map_value(undefined) ->
     null;
 map_value(Value) ->
@@ -173,6 +167,9 @@ default_mapping(resource, Context) ->
             <<"suggest">> => #{
                 <<"type">> => <<"completion">>,
                 <<"analyzer">> =>  <<"simple">>
+            },
+            <<"pivot_title">> => #{
+                <<"type">> => <<"text">>
             }
         },
         <<"dynamic_templates">> => dynamic_language_mapping(Context)
