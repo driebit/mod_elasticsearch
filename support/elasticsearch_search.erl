@@ -387,11 +387,11 @@ map_must({cat, Name}, Context) ->
             }
     end;
 map_must({authoritative, Bool}, _Context) ->
-    {true, [{term, [{is_authoritative, z_convert:to_bool(Bool)}]}]};
+    {true, on_resource(#{<<"term">> => #{<<"is_authoritative">> => z_convert:to_bool(Bool)}})};
 map_must({is_featured, Bool}, _Context) ->
     {true, [{term, [{is_featured, Bool}]}]};
 map_must({is_published, Bool}, _Context) ->
-    {true, [{term, [{is_published, Bool}]}]};
+    {true, on_resource(#{<<"term">> => #{<<"is_published">> => Bool}})};
 map_must({upcoming, true}, _Context) ->
     {true, [{range, [{date_start, [{<<"gt">>, <<"now">>}]}]}]};
 map_must({ongoing, true}, _Context) ->
@@ -701,3 +701,23 @@ parse_categories(Name) ->
             end;
         _ -> Name
     end.
+
+%% @doc Apply a search argument only on documents of type resource.
+%%      Other document types are excluded through a boolean OR.
+-spec on_resource(map()) -> map().
+on_resource(Argument) ->
+    #{
+        <<"bool">> => #{
+            <<"should">> => [
+                %% either it's a non-resource (some other document)
+                #{<<"bool">> => #{
+                    <<"must_not">> => [
+                        #{<<"term">> => #{
+                            <<"_type">> => <<"resource">>}
+                        }
+                    ]
+                }},
+                Argument
+            ]
+        }
+    }.
