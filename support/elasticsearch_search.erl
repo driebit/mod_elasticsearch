@@ -339,7 +339,7 @@ map_must_not({cat_exclude, Name}, Context) ->
         Filtered ->
             {true, [{terms, [{category, Filtered}]}]}
     end;
-map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key) ->
+map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_atom(Operator) ->
     map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     {true, [{term, [{Key, Value}]}]};
@@ -459,14 +459,14 @@ map_must({hassubject, Subject}, Context) ->
 map_must({hasanyobject, ObjectPredicates}, Context) ->
     Expanded = search_query:expand_object_predicates(ObjectPredicates, Context),
     OutgoingEdges = [map_outgoing_edge(Predicate, [Object], Context) || {Object, Predicate} <- Expanded],
-    {true, #{<<"nested">> => #{
+    {true, on_resource(#{<<"nested">> => #{
         <<"path">> => <<"outgoing_edges">>,
+        <<"ignore_unmapped">> => true,
         <<"query">> => #{
             <<"bool">> => #{
                 <<"should">> => OutgoingEdges
             }
-        }
-    }}};
+        }}})};
 map_must({rsc_id, Id}, _Context) ->
     {true, #{<<"match">> => #{<<"_id">> => Id}}};
 map_must({text, "id:" ++ _ = Val}, Context) ->
