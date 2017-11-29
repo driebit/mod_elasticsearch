@@ -342,7 +342,7 @@ map_must_not({cat_exclude, Name}, Context) ->
 map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_atom(Operator) ->
     map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
-    {true, [{term, [{Key, Value}]}]};
+    {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
 map_must_not({filter, [Key, missing]}, _Context) ->
     {true, [{<<"exists">>, [{field, Key}]}]};
 map_must_not({exclude_document, [Type, Id]}, _Context) ->
