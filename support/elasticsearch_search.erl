@@ -313,14 +313,14 @@ map_query({match_objects, Id}, Context) ->
         m_edge:get_edges(Id, Context)
     ),
 
-    {true, [{nested, [
+    {true, on_resource([{nested, [
         {path, <<"outgoing_edges">>},
         {query, [
             {bool, [
                 {should, Clauses}
             ]}
         ]}
-    ]}]};
+    ]}])};
 map_query({query_context_filter, Filter}, Context) ->
     %% Query context filters
     map_filter(Filter, Context);
