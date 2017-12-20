@@ -169,7 +169,7 @@ default_mapping(resource, Context) ->
                 <<"analyzer">> =>  <<"simple">>
             },
             <<"pivot_title">> => #{
-                <<"type">> => <<"text">>
+                <<"type">> => <<"keyword">>
             }
         },
         <<"dynamic_templates">> => dynamic_language_mapping(Context)
