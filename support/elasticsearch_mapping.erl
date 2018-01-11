@@ -101,7 +101,7 @@ map_value({{Y, M, D}, {H, I, S}} = DateTime) when
         <<"">> ->
             null;
         Value ->
-            z_convert:to_binary(Value)
+            convert_date(Value, DateTime)
     end;
 map_value({{_, _, _}, {_, _, _}}) ->
     %% Invalid date
@@ -116,6 +116,20 @@ map_edges(Id, Context) ->
         {incoming_edges, incoming_edges(Id, Context)},
         {outgoing_edges, outgoing_edges(Id, Context)}
     ].
+
+convert_date(IsotimeDate, {{Y, _M, _D}, {_H, _I, _S}}) ->
+    FormattedYear = formatted_year_str(Y),
+    IsotimeDateWithoutYear = string:substr(IsotimeDate, 1+length(integer_to_list(Y))),
+    list_to_binary(FormattedYear++IsotimeDateWithoutYear).
+
+formatted_year_str(Y) ->
+    Ystr = integer_to_list(Y),
+    Prefix = case string:substr(Ystr,1,1) of
+                 "-" -> "-";
+                 _ -> ""
+             end,
+    Year = binary_to_list(erlang:iolist_to_binary(io_lib:format("~4..0B", [abs(Y)]))),
+    Prefix++Year.
 
 incoming_edges(Id, Context) ->
     lists:flatmap(
