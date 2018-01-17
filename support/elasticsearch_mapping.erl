@@ -94,11 +94,9 @@ map_property({Key, Value}) ->
 map_value({{Y, M, D}, {H, I, S}} = DateTime) when
     is_integer(Y), is_integer(M), is_integer(D),
     is_integer(H), is_integer(I), is_integer(S) ->
-    case z_convert:to_isotime(DateTime) of
-        [] ->
+    case date_to_iso8601(DateTime) of
+        undefined ->
             %% e.g., ?ST_JUTTEMIS or invalid dates
-            null;
-        <<"">> ->
             null;
         Value ->
             z_convert:to_binary(Value)
@@ -236,3 +234,24 @@ is_supported_lang(Language) ->
 %%      Default is the (global) site language, not the Context's language.
 default_translation(Trans, Context) ->
     z_trans:lookup_fallback(Trans, z_trans:default_language(Context), Context).
+
+%% @doc Map date to ISO 8601 representation.
+%%      Can be removed when https://github.com/zotonic/z_stdlib/pull/30 is merged
+date_to_iso8601({{Y, _, _}, _} = DateTime) ->
+    case z_datetime:undefined_if_invalid_date(DateTime) of
+        undefined ->
+            undefined;
+        DateTime ->
+            case z_dateformat:format(DateTime, "-m-d\\TH:i:s\\Z", en) of
+                undefined ->
+                    %% Can be undefined even if undefined_if_invalid_date is not.
+                    undefined;
+                Formatted ->
+                    <<(year_to_iso8601(Y))/binary, Formatted/binary>>
+            end
+    end.
+
+year_to_iso8601(Y) when Y < 0 ->
+    iolist_to_binary(io_lib:format("-~4..0B", [abs(Y)]));
+year_to_iso8601(Y) ->
+    iolist_to_binary(io_lib:format("~4..0B", [Y])).
