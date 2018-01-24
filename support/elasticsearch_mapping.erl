@@ -60,7 +60,7 @@ map_property({Key, Value}) ->
         hasusergroup,
         installed_by,
         pivot_geocode_qhash, pivot_location_lat, pivot_location_lng,
-        managed_props, blocks, location_zoom_level,
+        managed_props, location_zoom_level,
         seo_noindex,
         tz,
         visible_for,
