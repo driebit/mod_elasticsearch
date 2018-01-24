@@ -658,6 +658,7 @@ map_filter([Key, Operator, Value, #{<<"path">> := Path}], Context) ->
     Nested = #{
         <<"nested">> => #{
             <<"path">> => Path,
+            <<"ignore_unmapped">> => true,
             <<"query">> => Query
         }
     },
