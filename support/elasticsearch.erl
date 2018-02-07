@@ -12,6 +12,7 @@
     put_mapping/4,
     delete_doc/2,
     delete_doc/3,
+    delete_doc/4,
     handle_response/1
 ]).
 
@@ -64,6 +65,12 @@ delete_doc(Id, Context) ->
 delete_doc(Id, Index, _Context) ->
     Response = erlastic_search:delete_doc(
         connection(), Index, "resource", z_convert:to_binary(Id)
+    ),
+    handle_response(Response).
+
+delete_doc(Id, Type, Index, _Context) ->
+    Response = erlastic_search:delete_doc(
+        Index, Type, Id
     ),
     handle_response(Response).
 
