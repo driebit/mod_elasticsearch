@@ -483,6 +483,12 @@ map_must(_, _) ->
 %% @doc Map aggregations (facets).
 map_aggregation({aggregation, [Name, Type, Values]}, Map, Context) ->
     map_aggregation({agg, [Name, Type, Values]}, Map, Context);
+map_aggregation({agg, [Name, <<"filter">>, Filter]}, Map, Context) ->
+    Map#{
+        z_convert:to_binary(Name) => #{
+            <<"filter">> => build_filter(Filter, Context)
+        }
+    };
 map_aggregation({agg, [Name, Type, Values]}, Map, _Context) ->
     Map#{
         z_convert:to_binary(Name) => #{
