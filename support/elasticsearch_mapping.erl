@@ -21,21 +21,7 @@ map_rsc(Id, Context) ->
         {pivot_title, default_translation(proplists:get_value(title, Props), Context)}
     ] ++
     map_location(Id, Context) ++
-    lists:foldl(
-        fun(Prop, Acc) ->
-            case map_property(Prop) of
-                undefined ->
-                    Acc;
-                {Key, Value} ->
-                    [{Key, Value}|Acc];
-                Values when is_list(Values) ->
-                    %% Property was split into multiple properties
-                    Values ++ Acc
-            end
-        end,
-        [],
-        Props
-    ) ++
+    map_properties(Props) ++
     map_edges(Id, Context).
 
 map_location(Id, Context) ->
@@ -51,44 +37,51 @@ map_location(Id, Context) ->
             ]}]
     end.
 
-map_property({Key, Value}) ->
-    % Exclude some properties that don't need to be added to index
-    IgnoredProps = [
-        crop_center,
-        feature_show_address, feature_show_geodata,
-        geocode_qhash, location_lng, location_lat,
-        hasusergroup,
-        installed_by,
-        pivot_geocode_qhash, pivot_location_lat, pivot_location_lng,
-        managed_props, blocks, location_zoom_level,
-        seo_noindex,
-        tz,
-        visible_for,
-        %% possible custom props that will collide and we must therefore exclude:
-        geolocation
-    ],
-    case lists:member(Key, IgnoredProps) of
-        true ->
-            undefined;
-        false ->
-            case Value of
-                {trans, Translations} ->
-                    lists:map(
-                        fun({LangCode, Translation}) ->
-                            %% Change keys to contain language code: title_en etc.
-                            LangKey = get_language_property(Key, LangCode),
-
-                            % Strip HTML tags from translated props. This is
-                            % only needed for body, but won't hurt the other
-                            % translated props.
-                            {LangKey, z_html:strip(Translation)}
-                        end,
-                        Translations
-                    );
-                _ ->
-                    {Key, map_value(Value)}
+map_properties(Properties) ->
+    lists:foldl(
+        fun(Prop, Acc) ->
+            case map_property(Prop) of
+                undefined ->
+                    Acc;
+                {Key, Value} ->
+                    [{Key, Value}|Acc];
+                Values when is_list(Values) ->
+                    %% Property was split into multiple properties
+                    Values ++ Acc
             end
-    end.
+        end,
+        [],
+        without_ignored(Properties)
+    ).
+
+without_ignored(Properties) ->
+    lists:filter(
+        fun({Key, _Value}) ->
+            not lists:member(Key, ignored_properties())
+        end,
+        Properties
+    ).
+
+map_property({Key, {trans, Translations}}) ->
+    lists:map(
+        fun({LangCode, Translation}) ->
+            %% Change keys to contain language code: title_en etc.
+            LangKey = get_language_property(Key, LangCode),
+
+            % Strip HTML tags from translated props. This is
+            % only needed for body, but won't hurt the other
+            % translated props.
+            {LangKey, z_html:strip(Translation)}
+        end,
+        Translations
+    );
+map_property({blocks, Blocks}) ->
+    {blocks, lists:map(
+        fun map_properties/1,
+        Blocks
+    )};
+map_property({Key, Value}) ->
+    {Key, map_value(Value)}.
 
 % Make Zotonic resource value Elasticsearch-friendly
 map_value({{Y, M, D}, {H, I, S}} = DateTime) when
@@ -255,3 +248,22 @@ year_to_iso8601(Y) when Y < 0 ->
     iolist_to_binary(io_lib:format("-~4..0B", [abs(Y)]));
 year_to_iso8601(Y) ->
     iolist_to_binary(io_lib:format("~4..0B", [Y])).
+
+
+%% @doc Properties that don't need to be added to the search index.
+-spec ignored_properties() -> [atom()].
+ignored_properties() ->
+     [
+        crop_center,
+        feature_show_address, feature_show_geodata,
+        geocode_qhash, location_lng, location_lat,
+        hasusergroup,
+        installed_by,
+        pivot_geocode_qhash, pivot_location_lat, pivot_location_lng,
+        managed_props, location_zoom_level,
+        seo_noindex,
+        tz,
+        visible_for,
+        %% possible custom props that will collide and we must therefore exclude:
+        geolocation
+    ].
