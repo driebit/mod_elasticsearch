@@ -265,7 +265,7 @@ map_query({text, Text}, Context) ->
         <<"_all">>,
         <<"title*^2">>
     ],
-    {true, #{<<"multi_match">> => #{
+    {true, #{<<"simple_query_string">> => #{
         <<"query">> => Text,
         <<"fields">> => z_notifier:foldr(#elasticsearch_fields{query = Text}, DefaultFields, Context)
     }}};
