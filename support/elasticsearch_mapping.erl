@@ -253,12 +253,13 @@ year_to_iso8601(Y) ->
 %% @doc Properties that don't need to be added to the search index.
 -spec ignored_properties() -> [atom()].
 ignored_properties() ->
-     [
+    [
         crop_center,
         feature_show_address, feature_show_geodata,
         geocode_qhash, location_lng, location_lat,
         hasusergroup,
         installed_by,
+        menu,
         pivot_geocode_qhash, pivot_location_lat, pivot_location_lng,
         managed_props, location_zoom_level,
         seo_noindex,
