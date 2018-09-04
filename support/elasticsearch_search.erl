@@ -249,7 +249,7 @@ map_sort(_, _) ->
     false.
 
 map_sort(Property, Order, _Context) ->
-    {true, [{map_sort_property(Property), [{order, Order}]}]}.
+    {true, #{map_sort_property(Property) => #{order => Order}}}.
 
 %% @doc Map full text query
 -spec map_query({atom(), any()}, z:context()) -> {true, list()} | false.
