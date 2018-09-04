@@ -119,7 +119,7 @@ Notifications
 
 ### elasticsearch_fields
 
-Observe this foldlr notification to change the document fields that are queried.
+Observe this foldr notification to change the document fields that are queried.
 You can use Elasticsearch [multi_match syntax](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html)
 for boosting fields:
 
