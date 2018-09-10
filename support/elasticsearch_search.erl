@@ -650,11 +650,9 @@ map_filter([<<"is_", _/binary>> = Key, Value], _Context) ->
     {true, #{<<"term">> => #{Key => z_convert:to_bool(Value)}}};
 map_filter([Key, exists], _Context) ->
     {true, #{<<"exists">> => #{<<"field">> => Key}}};
-
 %% ne undefined == exists
 map_filter([Key, ne, undefined], Context) ->
     map_filter([Key, exists], Context);
-
 map_filter([Key, Value], _Context) when Value =/= missing ->
     {true, #{<<"term">> => #{Key => z_convert:to_binary(Value)}}};
 map_filter([Key, Value, Options], Context) when is_map(Options) ->
