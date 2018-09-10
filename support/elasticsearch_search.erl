@@ -331,11 +331,6 @@ map_query(_, _) ->
 -spec map_must_not({atom(), any()}, z:context()) -> {true, list()} | false.
 map_must_not({cat_exclude, []}, _Context) ->
     false;
-
-%% ne undefined is translated into the filter "exists" {"field": Key} in 
-%% the map_filter function
-map_must_not({filter, [_Key, ne, undefined]}, _Context) ->
-    false;
 map_must_not({cat_exclude, Name}, Context) ->
     Cats = parse_categories(Name),
     case filter_categories(Cats, Context) of
@@ -346,6 +341,10 @@ map_must_not({cat_exclude, Name}, Context) ->
     end;
 map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_atom(Operator) ->
     map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
+%% ne/<> undefined is translated into the filter "exists" {"field": Key} in 
+%% the map_filter function
+map_must_not({filter, [_Key, Operator, undefined]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
+    false;
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
 map_must_not({filter, [Key, missing]}, _Context) ->
@@ -639,17 +638,14 @@ map_filter([[Key | _] | _] = Filters, Context) when is_list(Key); is_binary(Key)
     }}};
 map_filter([Key, Value], Context) when is_list(Key) ->
     map_filter([list_to_binary(Key), Value], Context);
-
 map_filter([<<"pivot_", _/binary>> = Pivot, Value], Context) ->
     map_filter([map_pivot(Pivot), Value], Context);
-
 %% location_lat and location_lng are both mapped to a field 
 %% called geolocation within elasticsearch
 map_filter([<<"location_lat">>, Value], Context) ->
     map_filter([<<"geolocation">>,  Value], Context);
 map_filter([<<"location_lng">>, Value], Context) ->
     map_filter([<<"geolocation">>, Value], Context);
-
 map_filter([<<"is_", _/binary>> = Key, Value], _Context) ->
     {true, #{<<"term">> => #{Key => z_convert:to_bool(Value)}}};
 map_filter([Key, exists], _Context) ->
