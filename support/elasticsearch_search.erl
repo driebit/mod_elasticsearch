@@ -125,7 +125,7 @@ id_to_integer(Item) ->
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
 build_query(Query, {From, Size}, Context) ->
     #{
-        <<"from">> => From - 1,
+        <<"from">> => From - 1, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
         <<"size">> => Size,
         <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
         <<"query">> => #{
@@ -341,7 +341,7 @@ map_must_not({cat_exclude, Name}, Context) ->
     end;
 map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_atom(Operator) ->
     map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
-%% ne/<> undefined is translated into the filter "exists" {"field": Key} in 
+%% ne/<> undefined is translated into the filter "exists" {"field": Key} in
 %% the map_filter function
 map_must_not({filter, [_Key, Operator, undefined]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     false;
@@ -640,7 +640,7 @@ map_filter([Key, Value], Context) when is_list(Key) ->
     map_filter([list_to_binary(Key), Value], Context);
 map_filter([<<"pivot_", _/binary>> = Pivot, Value], Context) ->
     map_filter([map_pivot(Pivot), Value], Context);
-%% location_lat and location_lng are both mapped to a field 
+%% location_lat and location_lng are both mapped to a field
 %% called geolocation within elasticsearch
 map_filter([<<"location_lat">>, Value], Context) ->
     map_filter([<<"geolocation">>,  Value], Context);
