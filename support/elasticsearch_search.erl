@@ -686,6 +686,14 @@ map_filter([Key, Operator, Value, Options], _Context) when Operator =:= <<"=">>;
     {true, #{<<"term">> => #{
         Key => Options#{<<"value">> => z_convert:to_binary(Value)}
     }}};
+map_filter([Key, <<"match">>, Value, _Options], _Context) ->
+    {true, #{<<"match">> => #{
+        Key => Value
+    }}};
+map_filter([Key, <<"match_phrase">>, Value, _Options], _Context) ->
+    {true, #{<<"match_phrase">> => #{
+        Key => Value
+    }}};
 map_filter(_Filter, _Context) ->
     %% Fall through for '<>'/'ne' (handled in map_must_not) and undefined
     %% filters (nothing to be done)
