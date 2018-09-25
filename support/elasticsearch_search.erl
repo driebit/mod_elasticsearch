@@ -76,12 +76,16 @@ search(#search_query{search = {query, Query}, offsetlimit = Offset}, Options, Co
     case is_elasticsearch(ZotonicQuery, Options) of
         true ->
             ElasticQuery = build_query(ZotonicQuery, Offset, Context),
-            %% Optimize performance by not returning full source document
-            NoSourceElasticQuery = ElasticQuery#{<<"_source">> => false},
+	    Source = source(ZotonicQuery, false),
+            SourceElasticQuery = ElasticQuery#{<<"_source">> => Source},
             #search_result{result = Items} = SearchResult =
-                do_search(NoSourceElasticQuery, ZotonicQuery, Offset, Context),
-            Ids = [id_to_integer(Item) || Item <- Items],
-            SearchResult#search_result{result = Ids};
+                do_search(SourceElasticQuery, ZotonicQuery, Offset, Context),
+	    case Source of 
+		false -> 
+		    Ids = [id_to_integer(Item) || Item <- Items],
+		    SearchResult#search_result{result = Ids};
+		_ -> SearchResult
+	    end;
         false ->
             undefined
     end.
