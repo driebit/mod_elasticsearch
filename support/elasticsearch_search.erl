@@ -167,7 +167,7 @@ do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
     Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
 
     %% Invisible by default, as Zotonic has minimum log level 'info'
-    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(ElasticQuery)]),
+    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jiffy:encode(ElasticQuery)]),
     search_result(erlastic_search:search(Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
 
 %% @doc Process search result
@@ -175,7 +175,7 @@ do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
 search_result({error, Error}, ElasticQuery, ZotonicQuery, _Offset) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
-        [Error, jsx:encode(ElasticQuery), ZotonicQuery]
+        [Error, jiffy:encode(ElasticQuery), ZotonicQuery]
     ),
 
     %% Return empty search result
@@ -192,11 +192,14 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_li
 search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQuery, ZotonicQuery, _Offset) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
-        [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
+        [Failures, jiffy:encode(ElasticQuery), ZotonicQuery]
     ),
 
     %% Return empty search result
     #search_result{};
+search_result({ok, Json}, ElasticQuery, ZotonicQuery, FromSize) when is_tuple(Json) ->
+    Json2 = jiffy:decode(jiffy:encode(Json), [return_maps]),
+    search_result({ok, Json2}, ElasticQuery, ZotonicQuery, FromSize);
 search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
     [#{<<"options">> := Options}] = maps:get(hd(maps:keys(Suggest)), Suggest),
     Options;
@@ -286,7 +289,7 @@ map_query({prefix, Prefix}, Context) ->
 map_query({elastic_query, ElasticQuery}, _Context) ->
     case jsx:is_json(ElasticQuery) of
         true ->
-            {true, jsx:decode(ElasticQuery)};
+            {true, jiffy:decode(ElasticQuery)};
         false ->
             false
     end;
@@ -337,7 +340,7 @@ map_must_not({cat_exclude, Name}, Context) ->
         [] ->
             false;
         Filtered ->
-            {true, [{terms, [{category, Filtered}]}]}
+            {true, [#{<<"terms">> => #{<<"category">> => Filtered}}]}
     end;
 map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_atom(Operator) ->
     map_must_not({filter, [list_to_binary(Key), Operator, Value]}, Context);
@@ -346,7 +349,7 @@ map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_at
 map_must_not({filter, [_Key, Operator, undefined]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     false;
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
-    {true, [{term, [{Key, z_convert:to_binary(Value)}]}]};
+    {true, [#{term => #{Key => z_convert:to_binary(Value)}}]};
 map_must_not({filter, [Key, missing]}, _Context) ->
     {true, [{<<"exists">>, [{field, Key}]}]};
 map_must_not({exclude_document, [Type, Id]}, _Context) ->
@@ -393,7 +396,7 @@ map_must({cat, Name}, Context) ->
 map_must({authoritative, Bool}, _Context) ->
     {true, on_resource(#{<<"term">> => #{<<"is_authoritative">> => z_convert:to_bool(Bool)}})};
 map_must({is_featured, Bool}, _Context) ->
-    {true, [{term, [{is_featured, Bool}]}]};
+    {true, [#{<<"term">> => #{<<"is_featured">> => Bool}}]};
 map_must({is_published, Bool}, _Context) ->
     {true, on_resource(#{<<"term">> => #{<<"is_published">> => Bool}})};
 map_must({upcoming, true}, _Context) ->
