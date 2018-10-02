@@ -7,6 +7,9 @@ services:
     - elasticsearch
     - postgresql
 
+before_script:
+    - psql -c 'CREATE USER zotonic; ALTER USER zotonic CREATEDB;' -U postgres
+
 script:
     - git clone https://github.com/zotonic/zotonic.git /opt/zotonic --branch 0.x
     - mkdir -p /opt/zotonic/user/modules ~/.zotonic
