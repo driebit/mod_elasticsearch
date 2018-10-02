@@ -15,7 +15,7 @@ map_test() ->
     ),
     Mapped = elasticsearch_mapping:map_rsc(Id, context()),
     ?assertEqual(<<"Just a title">>, proplists:get_value(title, Mapped)),
-    ?assertEqual(<<"">>, proplists:get_value(empty_string, Mapped)).
+    ?assertEqual(null, proplists:get_value(empty_string, Mapped)).
 
 context() ->
     z_context:new(testsandboxdb).
