@@ -99,6 +99,9 @@ map_value({{_, _, _}, {_, _, _}}) ->
     null;
 map_value(undefined) ->
     null;
+map_value(<<"">>) ->
+    %% Map empty string to null as empty strings interfere with ordering the search results.
+    null;
 map_value(Value) ->
     Value.
 
