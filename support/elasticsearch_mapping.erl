@@ -13,7 +13,7 @@
 ]).
 
 %% Map a Zotonic resource
--spec map_rsc(m_rsc:rid(), z:context()) -> lists:proplist().
+-spec map_rsc(m_rsc:rid(), z:context()) -> proplists:proplist().
 map_rsc(Id, Context) ->
     Props = m_rsc:get(Id, Context),
     [
@@ -98,6 +98,9 @@ map_value({{_, _, _}, {_, _, _}}) ->
     %% Invalid date
     null;
 map_value(undefined) ->
+    null;
+map_value(<<"">>) ->
+    %% Map empty string to null as empty strings interfere with ordering the search results.
     null;
 map_value(Value) ->
     Value.
