@@ -1,0 +1,20 @@
+language: erlang
+otp_release:
+    - 20.2
+    - 18.0
+
+services:
+    - elasticsearch
+    - postgresql
+
+before_script:
+    - psql -c 'CREATE USER zotonic; ALTER USER zotonic CREATEDB;' -U postgres
+
+script:
+    - git clone https://github.com/zotonic/zotonic.git /opt/zotonic --branch 0.x
+    - mkdir -p /opt/zotonic/user/modules ~/.zotonic
+    - cp travis/zotonic.config ~/.zotonic/
+    - ln -s $TRAVIS_BUILD_DIR /opt/zotonic/user/modules/
+    - cd /opt/zotonic
+    - make all
+    - bin/zotonic runtests mod_elasticsearch

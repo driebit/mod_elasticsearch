@@ -1,6 +1,8 @@
 mod_elasticsearch
 =================
 
+[![Build Status](https://travis-ci.com/driebit/mod_elasticsearch.svg?branch=master)](https://travis-ci.com/driebit/mod_elasticsearch)
+
 Installation
 ------------
 

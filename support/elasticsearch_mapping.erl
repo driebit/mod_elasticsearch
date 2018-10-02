@@ -13,7 +13,7 @@
 ]).
 
 %% Map a Zotonic resource
--spec map_rsc(m_rsc:rid(), z:context()) -> lists:proplist().
+-spec map_rsc(m_rsc:rid(), z:context()) -> proplists:proplist().
 map_rsc(Id, Context) ->
     Props = m_rsc:get(Id, Context),
     [
