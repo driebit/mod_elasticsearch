@@ -662,6 +662,14 @@ map_filter([Key, ne, undefined], Context) ->
     map_filter([Key, exists], Context);
 map_filter([Key, Value], _Context) when Value =/= missing ->
     {true, #{<<"term">> => #{Key => z_convert:to_binary(Value)}}};
+map_filter([Key, exists, #{<<"path">> := Path}], _Context) ->
+    {true, #{
+        <<"nested">> => #{
+            <<"path">> => Path,
+            <<"ignore_unmapped">> => true,
+            <<"query">> => #{<<"exists">> => #{<<"field">> => Key}}}
+        }
+    };
 map_filter([Key, Value, Options], Context) when is_map(Options) ->
     map_filter([Key, <<"eq">>, Value, Options], Context);
 map_filter([Key, Operator, Value], Context) ->
