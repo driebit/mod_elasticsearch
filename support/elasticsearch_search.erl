@@ -491,6 +491,8 @@ map_must(_, _) ->
     false.
 %% TODO: unfinished_or_nodate publication_month
 
+%% @doc Convert a nested proplist to a nested map recursively
+-spec proplist_to_map(list({atom(), term()})) -> #{atom() := term()}.
 proplist_to_map([]) -> #{};
 proplist_to_map([{Key, Value}|Tail]) ->
     Next = proplist_to_map(Tail),
