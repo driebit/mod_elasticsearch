@@ -80,8 +80,8 @@ search(#search_query{search = {query, Query}, offsetlimit = Offset}, Options, Co
 	    SourceElasticQuery = ElasticQuery#{<<"_source">> => Source},
 	    #search_result{result = Items} = SearchResult =
 		do_search(SourceElasticQuery, ZotonicQuery, Offset, Context),
-	    case Source of 
-		false -> 
+	    case Source of
+		false ->
 		    Ids = [id_to_integer(Item) || Item <- Items],
 		    SearchResult#search_result{result = Ids};
 		_ -> SearchResult
@@ -355,7 +355,7 @@ map_must_not({filter, [_Key, Operator, undefined]}, _Context) when Operator =:= 
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     {true, [#{term => #{Key => z_convert:to_binary(Value)}}]};
 map_must_not({filter, [Key, missing]}, _Context) ->
-    {true, [{<<"exists">>, [{field, Key}]}]};
+    {true, #{<<"exists">> => #{field => Key}}};
 map_must_not({exclude_document, [Type, Id]}, _Context) ->
     {true, #{<<"bool">> => #{
         <<"must">> => [
@@ -491,6 +491,16 @@ map_must(_, _) ->
     false.
 %% TODO: unfinished_or_nodate publication_month
 
+%% @doc Convert a nested proplist to a nested map recursively
+-spec proplist_to_map(list({atom(), term()})) -> map().
+proplist_to_map([]) -> #{};
+proplist_to_map([{Key, Value}|Tail]) ->
+    Next = proplist_to_map(Tail),
+    Next#{Key => proplist_to_map(Value)};
+proplist_to_map(Value) ->
+    Value.
+
+
 %% @doc Map aggregations (facets).
 map_aggregation({aggregation, [Name, Type, Values]}, Map, Context) ->
     map_aggregation({agg, [Name, Type, Values]}, Map, Context);
@@ -503,13 +513,13 @@ map_aggregation({agg, [Name, <<"filter">>, Filter]}, Map, Context) ->
 map_aggregation({agg, [Name, Type, Values]}, Map, _Context) ->
     Map#{
         z_convert:to_binary(Name) => #{
-            z_convert:to_binary(Type) => maps:from_list(Values)
+            z_convert:to_binary(Type) => proplist_to_map(Values)
         }
     };
 map_aggregation({agg, [Name, Values]}, Map, _Context) ->
     %% Nested aggregation
     Map#{
-        z_convert:to_binary(Name) => maps:from_list(Values)
+        z_convert:to_binary(Name) => proplist_to_map(Values)
     };
 map_aggregation(_, Map, _) ->
     Map.
