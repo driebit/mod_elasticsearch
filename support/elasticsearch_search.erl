@@ -80,8 +80,8 @@ search(#search_query{search = {query, Query}, offsetlimit = Offset}, Options, Co
 	    SourceElasticQuery = ElasticQuery#{<<"_source">> => Source},
 	    #search_result{result = Items} = SearchResult =
 		do_search(SourceElasticQuery, ZotonicQuery, Offset, Context),
-	    case Source of 
-		false -> 
+	    case Source of
+		false ->
 		    Ids = [id_to_integer(Item) || Item <- Items],
 		    SearchResult#search_result{result = Ids};
 		_ -> SearchResult
@@ -353,7 +353,7 @@ map_must_not({filter, [Key, Operator, Value]}, Context) when is_list(Key), is_at
 map_must_not({filter, [_Key, Operator, undefined]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
     false;
 map_must_not({filter, [Key, Operator, Value]}, _Context) when Operator =:= '<>'; Operator =:= ne ->
-    {true, #{term => #{Key => z_convert:to_binary(Value)}}};
+    {true, [#{term => #{Key => z_convert:to_binary(Value)}}]};
 map_must_not({filter, [Key, missing]}, _Context) ->
     {true, #{<<"exists">> => #{field => Key}}};
 map_must_not({exclude_document, [Type, Id]}, _Context) ->
