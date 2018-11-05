@@ -494,6 +494,7 @@ map_must(_, _) ->
 %% @doc Convert a nested proplist to a nested map recursively
 -spec proplist_to_map(list({atom(), term()})) -> map().
 proplist_to_map([]) -> #{};
+proplist_to_map([{}]) -> #{};
 proplist_to_map([{Key, Value}|Tail]) ->
     Next = proplist_to_map(Tail),
     Next#{Key => proplist_to_map(Value)};
