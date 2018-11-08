@@ -14,8 +14,8 @@ map_test() ->
         z_acl:sudo(context())
     ),
     Mapped = elasticsearch_mapping:map_rsc(Id, context()),
-    ?assertEqual(<<"Just a title">>, proplists:get_value(title, Mapped)),
-    ?assertEqual(null, proplists:get_value(empty_string, Mapped)).
+    ?assertEqual(<<"Just a title">>, maps:get(title, Mapped)),
+    ?assertEqual(null, maps:get(empty_string, Mapped)).
 
 context() ->
     z_context:new(testsandboxdb).
