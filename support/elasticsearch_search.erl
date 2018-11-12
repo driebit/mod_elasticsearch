@@ -189,7 +189,7 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_li
     Total = proplists:get_value(<<"total">>, Hits),
     Results = proplists:get_value(<<"hits">>, Hits),
     Page = From div Size + 1,
-    Pages = Total div Size,
+    Pages = mochinum:int_ceil(Total / Size),
     Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations};
@@ -211,7 +211,7 @@ search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, 
     %% From jsx 3.0+ or JSX_FORCE_MAPS is set
     #{<<"total">> := Total, <<"hits">> := Results} = Hits,
     Page = From div Size + 1,
-    Pages = Total div Size,
+    Pages = mochinum:int_ceil(Total / Size),
     Aggregations = maps:get(<<"aggregations">>, Json, []),
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations}.
 
