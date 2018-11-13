@@ -302,14 +302,14 @@ map_query({query_id, Id}, Context) ->
     map_query({elastic_query, ElasticQuery}, Context);
 map_query({match_objects, ObjectIds}, Context) when is_list(ObjectIds) ->
     Clauses = map_edge(any, ObjectIds, <<"outgoing_edges">>, Context),
-    {true, [{nested, [
-        {path, <<"outgoing_edges">>},
-        {query, [
-            {bool, [
-                {should, Clauses}
-            ]}
-        ]}
-    ]}]};
+    {true, #{<<"nested">> => #{
+        <<"path">> => <<"outgoing_edges">>},
+        <<"query">> => #{
+            <<"bool">> => #{
+                <<"should">> => Clauses
+            }
+        }
+    }};
 map_query({match_objects, Id}, Context) ->
     %% Look up all outgoing edges of this resource
     Clauses = lists:map(
@@ -320,14 +320,16 @@ map_query({match_objects, Id}, Context) ->
         m_edge:get_edges(Id, Context)
     ),
 
-    {true, on_resource([{nested, [
-        {path, <<"outgoing_edges">>},
-        {query, [
-            {bool, [
-                {should, Clauses}
-            ]}
-        ]}
-    ]}])};
+    {true, on_resource(
+        #{<<"nested">> => #{
+            <<"path">> => <<"outgoing_edges">>,
+            <<"query">> => #{
+                <<"bool">> => #{
+                    <<"should">> => Clauses
+                }
+            }
+        }}
+    )};
 map_query({query_context_filter, Filter}, Context) ->
     %% Query context filters
     map_filter(Filter, Context);
@@ -364,7 +366,7 @@ map_must_not({exclude_document, [Type, Id]}, _Context) ->
         ]}
     }};
 map_must_not({id_exclude, Id}, _Context) when Id =/= undefined ->
-    {true, [{term, [{id, z_convert:to_integer(Id)}]}]};
+    {true, #{<<"term">> => #{<<"id">> => z_convert:to_integer(Id)}}};
 map_must_not(_, _Context) ->
     false.
 
@@ -413,44 +415,40 @@ map_must({is_published, Bool}, _Context) ->
               }
             )};
 map_must({upcoming, true}, _Context) ->
-    {true, [{range, [{date_start, [{<<"gt">>, <<"now">>}]}]}]};
+    {true, #{<<"range">> => #{<<"date_start">> => #{<<"gt">> => <<"now">>}}}};
 map_must({ongoing, true}, _Context) ->
-    {true, [{range, [
-        {date_start, [{<<"lt">>, <<"now">>}]},
-        {date_end, [{<<"gr">>, <<"now">>}]}
-    ]}]};
+    {true, #{
+        <<"bool">> => #{
+            <<"must">> => [
+                #{<<"range">> => #{<<"date_start">> => #{<<"gt">> => <<"now">>}}},
+                #{<<"range">> => #{<<"date_end">> => #{<<"gt">> => <<"now">>}}}
+            ]
+        }}
+    };
 map_must({finished, true}, _Context) ->
-    {true, [{range, [{date_end, [{<<"lt">>, <<"now">>}]}]}]};
+    {true, #{<<"range">> => #{<<"date_end">> => #{<<"lt">> => <<"now">>}}}};
 map_must({unfinished, true}, _Context) ->
-    {true, [{range, [{date_end, [{<<"gt">>, <<"now">>}]}]}]};
+    {true, #{<<"range">> => #{<<"date_end">> => #{<<"gt">> => <<"now">>}}}};
 map_must({date_start_before, Date}, _Context) ->
-    {true, [{range, [
-        {date_start, [{<<"lt">>, z_convert:to_datetime(Date)}]}
-    ]}]};
+    {true, #{<<"range">> => #{<<"date_start">> => #{<<"lt">> => z_convert:to_datetime(Date)}}}};
 map_must({date_start_after, Date}, _Context) ->
-    {true, [{range, [
-        {date_start, [{<<"gt">>, z_convert:to_datetime(Date)}]}
-    ]}]};
+    {true, #{<<"range">> => #{<<"date_start">> => #{<<"gt">> => z_convert:to_datetime(Date)}}}};
 map_must({date_end_before, Date}, _Context) ->
-    {true, [{range, [
-        {date_end, [{<<"lt">>, z_convert:to_datetime(Date)}]}
-    ]}]};
+    {true, #{<<"range">> => #{<<"date_end">> => #{<<"lt">> => z_convert:to_datetime(Date)}}}};
 map_must({date_end_after, Date}, _Context) ->
-    {true, [{range, [
-        {date_end, [{<<"gt">>, z_convert:to_datetime(Date)}]}
-    ]}]};
+    {true, #{<<"range">> => #{<<"date_end">> => #{<<"gt">> => z_convert:to_datetime(Date)}}}};
 map_must({date_start_year, Year}, _Context) ->
-    {true, [{term, [{date_start, z_convert:to_binary(Year)}]}]};
+    {true, #{<<"term">> => #{<<"date_start">> => z_convert:to_binary(Year)}}};
 map_must({date_end_year, Year}, _Context) ->
-    {true, [{term, [{date_end, z_convert:to_binary(Year)}]}]};
+    {true, #{<<"term">> => #{<<"date_end">> => z_convert:to_binary(Year)}}};
 map_must({publication_year, Year}, _Context) ->
-    {true, [{term, [{publication_start, z_convert:to_binary(Year)}]}]};
+    {true, #{<<"term">> => #{<<"publication_start">> => z_convert:to_binary(Year)}}};
 map_must({content_group, []}, _Context) ->
     false;
 map_must({content_group, undefined}, _Context) ->
     false;
 map_must({content_group, Id}, Context) ->
-    {true, [{term, [{content_group_id, m_rsc:rid(Id, Context)}]}]};
+    {true, #{<<"term">> => #{<<"content_group_id">> => m_rsc:rid(Id, Context)}}};
 map_must({filter, Filters}, Context) ->
     map_filter(Filters, Context);
 map_must({hasobject, [Object, Predicate]}, Context) ->
