@@ -402,7 +402,16 @@ map_must({authoritative, Bool}, _Context) ->
 map_must({is_featured, Bool}, _Context) ->
     {true, [#{<<"term">> => #{<<"is_featured">> => Bool}}]};
 map_must({is_published, Bool}, _Context) ->
-    {true, on_resource(#{<<"term">> => #{<<"is_published">> => Bool}})};
+    {true, on_resource(
+             #{<<"bool">> =>
+                   #{<<"must">> =>
+                         [#{<<"term">> => #{<<"is_published">> => Bool}},
+                          #{<<"range">> => #{<<"publication_start">> => #{<<"lt">> => <<"now">>}}},
+                          #{<<"range">> => #{<<"publication_end">> => #{<<"gt">> => <<"now">>}}}
+                         ]
+                    }
+              }
+            )};
 map_must({upcoming, true}, _Context) ->
     {true, [{range, [{date_start, [{<<"gt">>, <<"now">>}]}]}]};
 map_must({ongoing, true}, _Context) ->
