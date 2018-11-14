@@ -403,15 +403,20 @@ map_must({is_featured, Bool}, _Context) ->
     {true, [#{<<"term">> => #{<<"is_featured">> => Bool}}]};
 map_must({is_published, Bool}, _Context) ->
     {true, on_resource(
-             #{<<"bool">> =>
-                   #{<<"must">> =>
-                         [#{<<"term">> => #{<<"is_published">> => Bool}},
-                          #{<<"range">> => #{<<"publication_start">> => #{<<"lt">> => <<"now">>}}},
-                          #{<<"range">> => #{<<"publication_end">> => #{<<"gt">> => <<"now">>}}}
-                         ]
-                    }
-              }
-            )};
+        #{<<"bool">> =>
+            #{<<"must">> => [
+                #{<<"term">> => #{<<"is_published">> => Bool}},
+                #{<<"bool">> => optional(
+                    <<"publication_start">>,
+                    #{<<"range">> => #{<<"publication_start">> => #{<<"lt">> => <<"now">>}}}
+                )},
+                #{<<"bool">> => optional(
+                    <<"publication_end">>,
+                    #{<<"range">> => #{<<"publication_end">> => #{<<"gt">> => <<"now">>}}}
+                )}
+            ]}
+        }
+    )};
 map_must({upcoming, true}, _Context) ->
     {true, [{range, [{date_start, [{<<"gt">>, <<"now">>}]}]}]};
 map_must({ongoing, true}, _Context) ->
@@ -783,4 +788,20 @@ on_resource(Argument) ->
                 Argument
             ]
         }
+    }.
+
+%% @doc Make a query (part) optional: if the field does not exist, the query is always true.
+-spec optional(binary(), map()) -> map().
+optional(Field, Query) ->
+    #{
+        <<"should">> => [
+            #{
+                <<"bool">> => #{
+                    <<"must_not">> => [
+                        #{<<"exists">> => #{<<"field">> => Field}}
+                    ]
+                }
+            },
+            Query
+        ]
     }.
