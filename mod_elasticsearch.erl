@@ -42,18 +42,15 @@ observe_search_query(#search_query{} = Search, Context) ->
 init(Args) ->
     application:ensure_all_started(erlastic_search),
     {context, Context} = proplists:lookup(context, Args),
-    
+
     %% Set default config
     Index = elasticsearch:index(Context),
     default_config(index, Index, Context),
 
-    %% Prepare index
-    {Hash, Mapping} = elasticsearch_mapping:default_mapping(resource, Context),
-    elasticsearch_index:upgrade(Index, [{<<"resource">>, Mapping}], Hash, Context),
     {ok, #state{context = z_context:new(Context)}}.
 
-manage_schema(_Version, _Context) ->
-    #datamodel{
+manage_schema(_Version, Context) ->
+    Datamodel = #datamodel{
         categories = [
             {elastic_query, query, [
                 {title, {trans, [
@@ -62,7 +59,9 @@ manage_schema(_Version, _Context) ->
                 ]}}
             ]}
         ]
-    }.
+    },
+    z_datamodel:manage(?MODULE, Datamodel, Context),
+    prepare_index(Context).
 
 handle_call({#search_query{} = Search, Context}, _From, State) ->
     {reply, search(Search, Context), State};
@@ -129,3 +128,9 @@ default_config(Key, Value, Context) ->
         _ ->
             nop
     end.
+
+-spec prepare_index(z:context()) -> ok.
+prepare_index(Context) ->
+    {Hash, Mapping} = elasticsearch_mapping:default_mapping(resource, Context),
+    Index = elasticsearch:index(Context),
+    ok = elasticsearch_index:upgrade(Index, [{<<"resource">>, Mapping}], Hash, Context).
