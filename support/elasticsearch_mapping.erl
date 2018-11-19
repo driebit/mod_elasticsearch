@@ -173,7 +173,7 @@ default_mapping(resource, Context) ->
 %% @doc Generate unique SHA1-based hash for a mapping
 -spec hash(map()) -> binary().
 hash(Map) ->
-    z_string:to_lower(z_utils:hex_encode(crypto:hash(sha, jiffy:encode(Map)))).
+    z_string:to_lower(z_utils:hex_encode(crypto:hash(sha, jsx:encode(Map)))).
 
 %% @doc Get dynamic language mappings, based on available languages.
 -spec dynamic_language_mapping(z:context()) -> list().

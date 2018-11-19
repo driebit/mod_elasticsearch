@@ -171,7 +171,7 @@ do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
     Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
 
     %% Invisible by default, as Zotonic has minimum log level 'info'
-    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jiffy:encode(ElasticQuery)]),
+    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(ElasticQuery)]),
     search_result(erlastic_search:search(Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
 
 %% @doc Process search result
@@ -179,7 +179,7 @@ do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
 search_result({error, Error}, ElasticQuery, ZotonicQuery, _Offset) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
-        [Error, jiffy:encode(ElasticQuery), ZotonicQuery]
+        [Error, jsx:encode(ElasticQuery), ZotonicQuery]
     ),
 
     %% Return empty search result
@@ -196,14 +196,11 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_li
 search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQuery, ZotonicQuery, _Offset) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
-        [Failures, jiffy:encode(ElasticQuery), ZotonicQuery]
+        [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
     ),
 
     %% Return empty search result
     #search_result{};
-search_result({ok, Json}, ElasticQuery, ZotonicQuery, FromSize) when is_tuple(Json) ->
-    Json2 = jiffy:decode(jiffy:encode(Json), [return_maps]),
-    search_result({ok, Json2}, ElasticQuery, ZotonicQuery, FromSize);
 search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
     [#{<<"options">> := Options}] = maps:get(hd(maps:keys(Suggest)), Suggest),
     Options;
@@ -293,7 +290,7 @@ map_query({prefix, Prefix}, Context) ->
 map_query({elastic_query, ElasticQuery}, _Context) ->
     case jsx:is_json(ElasticQuery) of
         true ->
-            {true, jiffy:decode(ElasticQuery)};
+            {true, jsx:decode(ElasticQuery)};
         false ->
             false
     end;
