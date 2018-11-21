@@ -12,45 +12,41 @@
     default_translation/2
 ]).
 
-%% Map a Zotonic resource
--spec map_rsc(m_rsc:rid(), z:context()) -> proplists:proplist().
+%% @doc Map a Zotonic resource to an Erlang map that can be passed to an Elasticsearch client.
+-spec map_rsc(m_rsc:rid(), z:context()) -> map().
 map_rsc(Id, Context) ->
-    Props = m_rsc:get(Id, Context),
-    [
-        {category, m_rsc:is_a(Id, Context)},
-        {pivot_title, default_translation(proplists:get_value(title, Props), Context)}
-    ] ++
-    map_location(Id, Context) ++
-    map_properties(Props) ++
-    map_edges(Id, Context).
+    RscProps = m_rsc:get(Id, Context),
+    Props = maps:merge(
+        map_location(Id, Context),
+        map_properties(RscProps)
+    ),
+    Props#{
+        category => m_rsc:is_a(Id, Context),
+        pivot_title => default_translation(proplists:get_value(title, RscProps), Context),
+        incoming_edges => incoming_edges(Id, Context),
+        outgoing_edges => outgoing_edges(Id, Context)
+    }.
 
 map_location(Id, Context) ->
     case {m_rsc:p(Id, location_lat, Context), m_rsc:p(Id, location_lng, Context)} of
         {_, undefined} ->
-            [];
+            #{};
         {undefined, _} ->
-            [];
+            #{};
         {Lat, Lng} ->
-            [{geolocation, [
-                {lat, z_convert:to_float(Lat)},
-                {lon, z_convert:to_float(Lng)}
-            ]}]
+            #{geolocation => #{
+                lat => z_convert:to_float(Lat),
+                lon => z_convert:to_float(Lng)
+            }}
     end.
 
+-spec map_properties(proplists:proplist()) -> map().
 map_properties(Properties) ->
     lists:foldl(
         fun(Prop, Acc) ->
-            case map_property(Prop) of
-                undefined ->
-                    Acc;
-                {Key, Value} ->
-                    [{Key, Value}|Acc];
-                Values when is_list(Values) ->
-                    %% Property was split into multiple properties
-                    Values ++ Acc
-            end
+            maps:merge(Acc, map_property(Prop))
         end,
-        [],
+        #{},
         without_ignored(Properties)
     ).
 
@@ -62,26 +58,28 @@ without_ignored(Properties) ->
         Properties
     ).
 
+-spec map_property(tuple()) -> map().
 map_property({Key, {trans, Translations}}) ->
-    lists:map(
-        fun({LangCode, Translation}) ->
+    lists:foldl(
+        fun({LangCode, Translation}, Acc) ->
             %% Change keys to contain language code: title_en etc.
             LangKey = get_language_property(Key, LangCode),
 
             % Strip HTML tags from translated props. This is
             % only needed for body, but won't hurt the other
             % translated props.
-            {LangKey, z_html:strip(Translation)}
+            Acc#{LangKey => z_html:strip(Translation)}
         end,
+        #{},
         Translations
     );
 map_property({blocks, Blocks}) ->
-    {blocks, lists:map(
+    #{blocks => lists:map(
         fun map_properties/1,
         Blocks
     )};
 map_property({Key, Value}) ->
-    {Key, map_value(Value)}.
+    #{Key => map_value(Value)}.
 
 % Make Zotonic resource value Elasticsearch-friendly
 map_value({{Y, M, D}, {H, I, S}} = DateTime) when
@@ -105,12 +103,6 @@ map_value(<<"">>) ->
 map_value(Value) ->
     Value.
 
-map_edges(Id, Context) ->
-    [
-        {incoming_edges, incoming_edges(Id, Context)},
-        {outgoing_edges, outgoing_edges(Id, Context)}
-    ].
-
 incoming_edges(Id, Context) ->
     lists:flatmap(
         fun(Predicate) ->
@@ -128,12 +120,12 @@ outgoing_edges(Id, Context) ->
     ).
 
 map_edge(Edge) ->
-    [
-        {predicate_id, proplists:get_value(predicate_id, Edge)},
-        {subject_id, proplists:get_value(subject_id, Edge)},
-        {object_id, proplists:get_value(object_id, Edge)},
-        {created, map_value(proplists:get_value(created, Edge))}
-    ].
+    #{
+        predicate_id => proplists:get_value(predicate_id, Edge),
+        subject_id => proplists:get_value(subject_id, Edge),
+        object_id => proplists:get_value(object_id, Edge),
+        created => map_value(proplists:get_value(created, Edge))
+    }.
 
 %% Get a default Elasticsearch mapping for Zotonic resources
 -spec default_mapping(atom(), z:context()) -> {Hash :: binary(), Mapping :: map()}.
