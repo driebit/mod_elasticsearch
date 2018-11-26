@@ -19,7 +19,8 @@
     code_change/3,
     start_link/1,
     manage_schema/2,
-    observe_elasticsearch_put/3
+    observe_elasticsearch_put/3,
+    pool/0
 ]).
 
 -include("zotonic.hrl").
@@ -41,6 +42,7 @@ observe_search_query(#search_query{} = Search, Context) ->
 
 init(Args) ->
     application:ensure_all_started(erlastic_search),
+    hackney_pool:start_pool(pool(), [{max_connections, max_connections()}]),
     {context, Context} = proplists:lookup(context, Args),
 
     %% Set default config
@@ -134,3 +136,9 @@ prepare_index(Context) ->
     {Hash, Mapping} = elasticsearch_mapping:default_mapping(resource, Context),
     Index = elasticsearch:index(Context),
     ok = elasticsearch_index:upgrade(Index, [{<<"resource">>, Mapping}], Hash, Context).
+
+pool() ->
+    elastic_pool.
+
+max_connections() ->
+    1000.

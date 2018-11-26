@@ -24,7 +24,7 @@
 connection() ->
     EsHost = application:get_env(erlastic_search, host, z_config:get(elasticsearch_host, <<"127.0.0.1">>)),
     EsPort = application:get_env(erlastic_search, port, z_config:get(elasticsearch_port, 9200)),
-    #erls_params{host=EsHost, port=EsPort, http_client_options=[]}.
+    #erls_params{host=EsHost, port=EsPort, http_client_options=[{pool, mod_elasticsearch:pool()}]}.
 
 %% Get Elasticsearch index name from config; defaults to site name
 -spec index(z:context()) -> binary().
@@ -56,7 +56,7 @@ put_doc(Index, Id, Context) ->
 
 put_doc(Index, Type, Id, Data, Context) ->
     NotifiedData = z_notifier:foldl(#elasticsearch_put{index = Index, type = Type, id = Id}, Data, Context),
-    Response = erlastic_search:index_doc_with_id(Index, Type, Id, NotifiedData),
+    Response = erlastic_search:index_doc_with_id(connection(), Index, Type, Id, NotifiedData),
     handle_response(Response).
 
 delete_doc(Id, Context) ->
@@ -64,13 +64,14 @@ delete_doc(Id, Context) ->
 
 delete_doc(Id, Index, _Context) ->
     Response = erlastic_search:delete_doc(
-        connection(), Index, "resource", z_convert:to_binary(Id)
+                 connection(),
+                 Index, "resource", z_convert:to_binary(Id)
     ),
     handle_response(Response).
 
 delete_doc(Id, Type, Index, _Context) ->
     Response = erlastic_search:delete_doc(
-        Index, Type, Id
+                 connection(), Index, Type, Id
     ),
     handle_response(Response).
 
@@ -91,4 +92,3 @@ handle_response(Response) ->
         {ok, _} ->
             Response
     end.
-

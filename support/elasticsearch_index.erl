@@ -50,7 +50,8 @@ maybe_create_type(Index, Type, Mappings) ->
             %% Don't try to change existing types.
             ok;
         false ->
-            {ok, _} = erlastic_search:put_mapping(Index, Type, Mappings)
+            {ok, _} = erlastic_search:put_mapping(elasticsearch:connection(),
+                                                  Index, Type, Mappings)
     end.
 
 %% @doc Populate the new index with data from the previous index, but only if
@@ -71,10 +72,10 @@ maybe_reindex(Alias, NewIndex) ->
                 },
                 <<"conflicts">> => <<"proceed">>
             },
-            
+
             %% This can take a while before completing
             elasticsearch:handle_response(
-                erlastic_search:reindex(Body)
+                erlastic_search:reindex(elasticsearch:connection(), Body)
             )
     end.
 
@@ -97,12 +98,12 @@ update_alias(Alias, Index) ->
         end
     ],
     Body = #{<<"actions">> => Actions},
-    erlastic_search:aliases(Body).
+    erlastic_search:aliases(elasticsearch:connection(), Body).
 
 %% @doc Get name of index appended with version number
 versioned_index(Index, Version) ->
     <<Index/binary, "_", Version/binary>>.
-  
+
 %% Create index only if it doesn't yet exist
 -spec ensure_index(binary()) -> ok.
 ensure_index(Index) ->
