@@ -172,7 +172,7 @@ do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
 
     %% Invisible by default, as Zotonic has minimum log level 'info'
     lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(ElasticQuery)]),
-    search_result(erlastic_search:search(elasticsearch:connect(),
+    search_result(erlastic_search:search(elasticsearch:connection(),
                                          Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
 
 %% @doc Process search result
