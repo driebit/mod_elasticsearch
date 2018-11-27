@@ -13,6 +13,7 @@
     delete_doc/2,
     delete_doc/3,
     delete_doc/4,
+    get_doc/3,
     handle_response/1
 ]).
 
@@ -92,3 +93,7 @@ handle_response(Response) ->
         {ok, _} ->
             Response
     end.
+
+%% Fetch a single document by type and Id
+get_doc(Index, Type, Id) ->
+    erlastic_search:get_doc(connection(), Index, Type, Id).
