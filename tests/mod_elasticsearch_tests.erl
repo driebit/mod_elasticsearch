@@ -7,7 +7,7 @@
 map_test() ->
     {ok, Id} = m_rsc:insert(
         [
-            {category, text},
+            {category, article},
             {title, <<"Just a title">>},
             {empty_string, <<"">>},
             {translated, {trans, [
@@ -21,7 +21,10 @@ map_test() ->
     ?assertEqual(<<"Just a title">>, maps:get(title, Mapped)),
     ?assertEqual(null, maps:get(empty_string, Mapped)),
     ?assertEqual(<<"Apekool">>, maps:get(<<"translated_nl">>, Mapped)),
-    ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
+    ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)),
+    ?assertEqual([<<"text">>, <<"article">>], maps:get(<<"category">>, Mapped)),
+    ?assertEqual(m_rsc:rid(article, context()), maps:get(<<"category_id">>, Mapped)),
+    ?assertEqual(<<"article">>, maps:get(<<"category_exact">>, Mapped)).
 
 context() ->
     z_context:new(testsandboxdb).
