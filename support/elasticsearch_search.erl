@@ -378,12 +378,13 @@ map_must({cat, Name}, Context) ->
         Filtered ->
             {true, on_resource(#{<<"terms">> => #{<<"category">> => Filtered}})}
     end;
-map_must({cat_exact, Categories}, Context) ->
-    case filter_categories(Categories, Context) of
+map_must({cat_exact, Name}, Context) ->
+    Cats = parse_categories(Name),
+    case filter_categories(Cats, Context) of
         [] ->
             false;
         Filtered ->
-            Ids = [m_category:name_to_id(F, Context) || F <- Filtered],
+            Ids = [m_rsc:rid(F, Context) || F <- Filtered],
             {true, on_resource(#{<<"terms">> => #{<<"category_id">> => Ids}})}
     end;
 map_must({authoritative, Bool}, _Context) ->
