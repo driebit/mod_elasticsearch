@@ -7,7 +7,7 @@
 map_test() ->
     {ok, Id} = m_rsc:insert(
         [
-            {category, text},
+            {category, article},
             {title, <<"Just a title">>},
             {empty_string, <<"">>},
             {translated, {trans, [
@@ -18,6 +18,8 @@ map_test() ->
         z_acl:sudo(context())
     ),
     Mapped = elasticsearch_mapping:map_rsc(Id, context()),
+    ?assertEqual([text, article], maps:get(category, Mapped)),
+    ?assertEqual(m_rsc:rid(article, context()), maps:get(category_id, Mapped)),
     ?assertEqual(<<"Just a title">>, maps:get(title, Mapped)),
     ?assertEqual(null, maps:get(empty_string, Mapped)),
     ?assertEqual(<<"Apekool">>, maps:get(<<"translated_nl">>, Mapped)),

@@ -370,32 +370,22 @@ map_must_not(_, _Context) ->
 
 %% @doc Map AND
 -spec map_must({atom(), any()}, z:context()) -> {true, list()} | false.
-map_must({cat, []}, _Context) ->
-    false;
 map_must({cat, Name}, Context) ->
     Cats = parse_categories(Name),
     case filter_categories(Cats, Context) of
         [] ->
             false;
         Filtered ->
-            {true, #{
-                <<"bool">> => #{
-                    <<"should">> => [
-                        %% either it's a non-resource (some other document)
-                        #{<<"bool">> => #{
-                            <<"must_not">> => [
-                                #{<<"term">> => #{
-                                    <<"_type">> => <<"resource">>}
-                                }
-                            ]
-                        }},
-                        %% or (if a resource) it must match the categories
-                        #{<<"terms">> => #{
-                            <<"category">> => Filtered
-                        }}
-                    ]
-                }}
-            }
+            {true, on_resource(#{<<"terms">> => #{<<"category">> => Filtered}})}
+    end;
+map_must({cat_exact, Name}, Context) ->
+    Cats = parse_categories(Name),
+    case filter_categories(Cats, Context) of
+        [] ->
+            false;
+        Filtered ->
+            Ids = [m_rsc:rid(F, Context) || F <- Filtered],
+            {true, on_resource(#{<<"terms">> => #{<<"category_id">> => Ids}})}
     end;
 map_must({authoritative, Bool}, _Context) ->
     {true, on_resource(#{<<"term">> => #{<<"is_authoritative">> => z_convert:to_bool(Bool)}})};
