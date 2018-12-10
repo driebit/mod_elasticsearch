@@ -11,7 +11,6 @@ before_script:
     - psql -c 'CREATE USER zotonic;' -U postgres
     - psql -c 'CREATE DATABASE zotonic WITH OWNER = zotonic;' -U postgres
     - psql -c 'GRANT ALL ON DATABASE zotonic TO zotonic;' -U postgres
-    - until curl --silent -XGET --fail http://localhost:9200; do printf '.'; sleep 1; done
 
 script:
     - git clone https://github.com/zotonic/zotonic.git /opt/zotonic --branch 0.x
