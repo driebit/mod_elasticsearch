@@ -24,7 +24,7 @@ map_test() ->
     ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
 
 put_doc_test() ->
-    z_module_manager:activate_await(mod_elasticsearch, context()),
+    ok = z_module_manager:activate_await(mod_elasticsearch, context()),
     {ok, Id} = m_rsc:insert(
         [
             {category, keyword},
