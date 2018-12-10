@@ -24,7 +24,7 @@ map_test() ->
     ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
 
 put_doc_test() ->
-    ok = z_module_manager:activate_await(mod_elasticsearch, context()),
+    start_module(context()),
     {ok, Id} = m_rsc:insert(
         [
             {category, keyword},
@@ -48,3 +48,11 @@ put_doc_test() ->
 
 context() ->
     z_context:new(testsandboxdb).
+
+-spec start_module(z:context()) -> any().
+start_module(Context) ->
+    ok = z_module_manager:activate_await(mod_elasticsearch, Context),
+    %% Call init/1 synchronously to wait for initialization to finish.
+    %% See also https://github.com/zotonic/zotonic/issues/1916.
+    mod_elasticsearch:init([{context, context()}]),
+    ok.
