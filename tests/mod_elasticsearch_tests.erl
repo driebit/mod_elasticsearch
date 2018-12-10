@@ -49,7 +49,7 @@ put_doc_test() ->
 context() ->
     z_context:new(testsandboxdb).
 
--spec start_module(z:context()) -> any().
+-spec start_module(z:context()) -> ok.
 start_module(Context) ->
     ok = z_module_manager:activate_await(mod_elasticsearch, Context),
     %% Call init/1 synchronously to wait for initialization to finish.
