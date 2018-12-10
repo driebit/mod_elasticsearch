@@ -141,7 +141,7 @@ url_exists(Url) ->
         [],
         Connection#erls_params.http_client_options
     ),
-    case Response of
+    case ?DEBUG(Response) of
         {error, 404} ->
             false;
         ok ->
