@@ -23,5 +23,28 @@ map_test() ->
     ?assertEqual(<<"Apekool">>, maps:get(<<"translated_nl">>, Mapped)),
     ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
 
+put_doc_test() ->
+    z_module_manager:activate_await(mod_elasticsearch, context()),
+    {ok, Id} = m_rsc:insert(
+        [
+            {category, keyword},
+            {title, <<"Some keyword">>}
+        ],
+        z_acl:sudo(context())
+    ),
+
+    meck:new(erlastic_search),
+    meck:expect(
+        erlastic_search,
+        index_doc_with_id,
+        fun(_Connection, <<"testsandboxdb">>, <<"resource">>, DocId, Data) ->
+            ?assertEqual(z_convert:to_binary(Id), DocId),
+            ?assert(maps:is_key(suggest, Data)),
+            {ok, <<>>}
+        end
+    ),
+    elasticsearch:put_doc(Id, context()),
+    meck:unload(erlastic_search).
+
 context() ->
     z_context:new(testsandboxdb).

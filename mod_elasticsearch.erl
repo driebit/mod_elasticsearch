@@ -89,7 +89,7 @@ terminate(_Reason, _State) ->
     ok.
 
 %% @doc When the resource is a keyword, add its title to the suggest completion field.
--spec observe_elasticsearch_put(#elasticsearch_put{}, [], z:context()) -> proplist:list().
+-spec observe_elasticsearch_put(#elasticsearch_put{}, map(), z:context()) -> map().
 observe_elasticsearch_put(#elasticsearch_put{type = <<"resource">>, id = Id}, Data, Context) ->
     case m_rsc:is_a(Id, keyword, Context) of
         true ->
@@ -99,10 +99,12 @@ observe_elasticsearch_put(#elasticsearch_put{type = <<"resource">>, id = Id}, Da
                 Title ->
                     %% Assume good keywords are linked more often than erratic ones.
                     Weight = length(m_edge:subjects(z_convert:to_integer(Id), Context)),
-                    [{suggest, [
-                        {input, Title},
-                        {weight, Weight}
-                    ]} | Data]
+                    Data#{
+                        suggest => #{
+                            input => Title,
+                            weight => Weight
+                        }
+                    }
             end;
         false ->
             Data
