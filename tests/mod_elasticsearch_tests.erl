@@ -51,9 +51,6 @@ context() ->
 
 -spec start_module(z:context()) -> ok.
 start_module(Context) ->
-    application:ensure_all_started(erlastic_search),
+%%    application:ensure_all_started(erlastic_search),
     ok = z_module_manager:activate_await(mod_elasticsearch, Context),
-    %% Call init/1 synchronously to wait for initialization to finish.
-    %% See also https://github.com/zotonic/zotonic/issues/1916.
-%%    {ok, _} = mod_elasticsearch:init([{context, context()}]),
     ok.
