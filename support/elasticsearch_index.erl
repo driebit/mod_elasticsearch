@@ -130,7 +130,7 @@ index_exists(Index) ->
 %% @doc Check if type exists.
 -spec type_exists(binary(), binary()) -> boolean().
 type_exists(Index, Type) ->
-    url_exists(<<Index/binary, "/_mapping", Type/binary>>).
+    url_exists(<<Index/binary, "/_mapping/", Type/binary>>).
 
 url_exists(Url) ->
     Connection = elasticsearch:connection(),
