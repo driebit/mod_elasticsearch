@@ -24,7 +24,6 @@ map_test() ->
     ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
 
 put_doc_test() ->
-    lager:set_loglevel(lager_console_backend, debug),
     start_module(context()),
     {ok, Id} = m_rsc:insert(
         [
@@ -56,5 +55,5 @@ start_module(Context) ->
     ok = z_module_manager:activate_await(mod_elasticsearch, Context),
     %% Call init/1 synchronously to wait for initialization to finish.
     %% See also https://github.com/zotonic/zotonic/issues/1916.
-    {ok, _} = mod_elasticsearch:init([{context, context()}]),
+%%    {ok, _} = mod_elasticsearch:init([{context, context()}]),
     ok.
