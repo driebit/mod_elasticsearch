@@ -52,4 +52,4 @@ context() ->
 -spec start_module(z:context()) -> ok.
 start_module(Context) ->
     application:ensure_all_started(erlastic_search),
-    z_module_manager:activate_await(mod_elasticsearch, Context).
+    ok = z_module_manager:activate_await(mod_elasticsearch, Context).
