@@ -42,7 +42,7 @@ observe_search_query(#search_query{} = Search, Context) ->
 
 init(Args) ->
     application:ensure_all_started(erlastic_search),
-    ok = hackney_pool:start_pool(pool(), [{max_connections, max_connections()}]),
+    hackney_pool:start_pool(pool(), [{max_connections, max_connections()}]),
     {context, Context} = proplists:lookup(context, Args),
 
     %% Set default config

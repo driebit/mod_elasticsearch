@@ -134,8 +134,6 @@ type_exists(Index, Type) ->
 
 url_exists(Url) ->
     Connection = elasticsearch:connection(),
-    ?DEBUG({Connection, Url}),
-
     Response = erls_resource:head(
         Connection,
         Url,
