@@ -24,6 +24,7 @@ map_test() ->
     ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
 
 put_doc_test() ->
+    lager:set_loglevel(lager_console_backend, debug),
     start_module(context()),
     {ok, Id} = m_rsc:insert(
         [
