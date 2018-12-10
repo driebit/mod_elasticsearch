@@ -54,5 +54,5 @@ start_module(Context) ->
     ok = z_module_manager:activate_await(mod_elasticsearch, Context),
     %% Call init/1 synchronously to wait for initialization to finish.
     %% See also https://github.com/zotonic/zotonic/issues/1916.
-    mod_elasticsearch:init([{context, context()}]),
+    {ok, _} = mod_elasticsearch:init([{context, context()}]),
     ok.
