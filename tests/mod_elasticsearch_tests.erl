@@ -25,5 +25,13 @@ map_test() ->
     ?assertEqual(<<"Apekool">>, maps:get(<<"translated_nl">>, Mapped)),
     ?assertEqual(<<"Hogwash">>, maps:get(<<"translated_en">>, Mapped)).
 
+init_test() ->
+    start_module(context()).
+
 context() ->
     z_context:new(testsandboxdb).
+
+-spec start_module(z:context()) -> ok.
+start_module(Context) ->
+    application:ensure_all_started(erlastic_search),
+    ok = z_module_manager:activate_await(mod_elasticsearch, Context).
