@@ -41,17 +41,15 @@ observe_search_query(#search_query{} = Search, Context) ->
     search(Search, Context).
 
 init(Args) ->
-    application:ensure_all_started(erlastic_search),
-    hackney_pool:start_pool(pool(), [{max_connections, max_connections()}]),
+    start(),
     {context, Context} = proplists:lookup(context, Args),
+    {ok, #state{context = z_context:new(Context)}}.
 
+manage_schema(_Version, Context) ->
     %% Set default config
     Index = elasticsearch:index(Context),
     default_config(index, Index, Context),
 
-    {ok, #state{context = z_context:new(Context)}}.
-
-manage_schema(_Version, Context) ->
     Datamodel = #datamodel{
         categories = [
             {elastic_query, query, [
@@ -63,6 +61,10 @@ manage_schema(_Version, Context) ->
         ]
     },
     z_datamodel:manage(?MODULE, Datamodel, Context),
+
+    %% When starting mod_elasticsearch for the first time, this function runs
+    %% before init/1, so make sure dependencies are started.
+    start(),
     prepare_index(Context).
 
 handle_call({#search_query{} = Search, Context}, _From, State) ->
@@ -144,3 +146,8 @@ pool() ->
 
 max_connections() ->
     1000.
+
+%% @doc Start the erlastic_search app and its dependencies.
+start() ->
+    application:ensure_all_started(erlastic_search),
+    hackney_pool:start_pool(pool(), [{max_connections, max_connections()}]).
