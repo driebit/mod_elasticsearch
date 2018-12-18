@@ -284,7 +284,7 @@ map_query({prefix, Prefix}, Context) ->
         <<"type">> => <<"phrase_prefix">>,
         <<"fields">> => z_notifier:foldr(
             #elasticsearch_fields{query = #{<<"prefix">> => Prefix}},
-            [<<"title">>],
+            [<<"title*^2">>],
             Context
         )
     }}};
