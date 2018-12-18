@@ -149,15 +149,18 @@ person resources:
 ```erlang
 %% your_site.erl
 
+-include_lib("mod_elasticsearch/include/elasticsearch.hrl").
+
 -export([
     % ...
     observe_elasticsearch_put/3
 ]).
 
-observe_elasticsearch_put({elasticsearch_put, Id}, Props, Context) ->
+-spec observe_elasticsearch_put(#elasticsearch_put{}, map(), z:context()) -> map().
+observe_elasticsearch_put(#elasticsearch_put{id = Id}, Props, Context) ->
     case m_rsc:is_a(Id, person, Context) of
         true ->
-            Props ++ [{zodiac, calculate_zodiac(Id, Context)}];
+            Props#{zodiac => calculate_zodiac(Id, Context)};
         false ->
             Props
     end.
