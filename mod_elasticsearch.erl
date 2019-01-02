@@ -64,6 +64,7 @@ manage_schema(_Version, Context) ->
 
     %% When starting mod_elasticsearch for the first time, this function runs
     %% before init/1, so make sure dependencies are started.
+    application:ensure_all_started(erlastic_search),
     start(),
     prepare_index(Context).
 
