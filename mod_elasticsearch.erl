@@ -8,6 +8,7 @@
 -behaviour(gen_server).
 
 -export([
+    pid_observe_rsc_update_done/3,
     pid_observe_rsc_pivot_done/3,
     pid_observe_rsc_delete/3,
     observe_search_query/2,
@@ -30,6 +31,9 @@
 
 start_link(Args) when is_list(Args) ->
     gen_server:start_link(?MODULE, Args, []).
+
+pid_observe_rsc_update_done(Pid, Msg, _Context) ->
+    gen_server:cast(Pid, Msg).
 
 pid_observe_rsc_pivot_done(Pid, Msg, _Context) ->
     gen_server:cast(Pid, Msg).
@@ -72,6 +76,9 @@ handle_call({#search_query{} = Search, Context}, _From, State) ->
 handle_call(Message, _From, State) ->
     {stop, {unknown_call, Message}, State}.
 
+handle_cast(#rsc_update_done{id = Id}, State = #state{context = Context}) ->
+    elasticsearch:put_doc(Id, Context),
+    {noreply, State};
 handle_cast(#rsc_pivot_done{id = Id}, State = #state{context = Context}) ->
     elasticsearch:put_doc(Id, Context),
     {noreply, State};
