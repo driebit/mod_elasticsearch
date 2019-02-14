@@ -89,7 +89,8 @@ handle_response(Response) ->
             lager:error(
                 "Elasticsearch error: ~p with connection ~p",
                 [Reason, connection()]
-            );
+            ),
+            Response;
         {ok, _} ->
             Response
     end.
