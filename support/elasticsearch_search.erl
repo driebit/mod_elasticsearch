@@ -482,10 +482,15 @@ map_must({rsc_id, Id}, _Context) ->
     {true, #{<<"match">> => #{<<"_id">> => Id}}};
 map_must({text, "id:" ++ _ = Val}, Context) ->
     map_must({text, list_to_binary(Val)}, Context);
-map_must({text, <<"id:", Id/binary>>}, _Context) ->
-    %% Find by id when text argument equals "id:123"
+map_must({text, <<"id:", IdOrName/binary>>}, Context) ->
+    %% Find by id when text argument equals "id:123" or "id:unique_name"
+    TrimmedId = z_string:trim(IdOrName),
+    Id = case m_rsc:name_to_id(TrimmedId, Context) of
+              {ok, NumericId} -> integer_to_binary(NumericId);
+              _ -> TrimmedId
+          end,
     {true, #{<<"match">> => #{
-        <<"_id">> => z_string:trim(Id)
+        <<"_id">> => Id
     }}};
 map_must(_, _) ->
     false.
