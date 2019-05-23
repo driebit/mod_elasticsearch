@@ -440,6 +440,10 @@ map_must({date_end_year, Year}, _Context) ->
     {true, #{<<"term">> => #{<<"date_end">> => <<(z_convert:to_binary(Year))/binary, "||/y">>}}};
 map_must({publication_year, Year}, _Context) ->
     {true, #{<<"term">> => #{<<"publication_start">> => <<(z_convert:to_binary(Year))/binary, "||/y">>}}};
+map_must({publication_before, Date}, _Context) ->
+    {true, #{<<"range">> => #{<<"publication_start">> => #{<<"lte">> => z_convert:to_datetime(Date)}}}};
+map_must({publication_after, Date}, _Context) ->
+    {true, #{<<"range">> => #{<<"publication_start">> => #{<<"gte">> => z_convert:to_datetime(Date)}}}};
 map_must({content_group, []}, _Context) ->
     false;
 map_must({content_group, undefined}, _Context) ->
