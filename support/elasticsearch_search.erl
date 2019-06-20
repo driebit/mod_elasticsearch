@@ -14,9 +14,11 @@
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
     %% Size defaults to 10.000 max
     %% See https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-from-size.html
+    ?DEBUG([From, Size]),
     search(#search_query{search = {Type, Query}, offsetlimit = {From, 9999}}, Context);
 %% @doc Free search query in any index (non-resources)
 search(#search_query{search = {elastic, Query}, offsetlimit = Offset}, Context) ->
+    ?DEBUG(Offset),
     ElasticQuery = build_query(Query, Offset, Context),
     do_search(ElasticQuery, Query, Offset, Context);
 
@@ -127,9 +129,10 @@ id_to_integer(Item) ->
 
 %% @doc Build Elasticsearch query from Zotonic query
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
-build_query(Query, {From, _Size}, Context) ->
+build_query(Query, {From, Size}, Context) ->
+    ?DEBUG([From, Size]),
     #{
-        <<"from">> => From - 1, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
+        <<"from">> => 0, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
         <<"size">> => 10000, %%Size,
         <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
         <<"query">> => #{
@@ -194,7 +197,7 @@ paginate([Result|Results], From, Size, Acc, Rejected, Context) ->
                             paginate(Results, From, Size, [Result|Acc], Rejected, Context)
                     end;
                 false ->
-                    paginate(Results, From, Size, Acc, Rejected, Context)
+                    paginate(Results, From, Size, Acc, Rejected + 1, Context)
             end
     end.
 paginate(Results, From, Size, Context) ->
@@ -240,10 +243,11 @@ search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, 
     Page = From div Size + 1,
     Pages = mochinum:int_ceil(Total / Size),
     Aggregations = maps:get(<<"aggregations">>, Json, []),
+    ?DEBUG([From, Size]),
     PaginatedResults = paginate(
                          Results,
                          From, Size, Context),
-    ?DEBUG([Hits, Total]),
+    %%?DEBUG([length(Hits), Total]),
     ?DEBUG([length(Results), Size]),
     #search_result{result = PaginatedResults,
                    total = Total,

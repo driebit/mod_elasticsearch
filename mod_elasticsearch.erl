@@ -42,6 +42,7 @@ pid_observe_rsc_delete(Pid, Msg, _Context) ->
     gen_server:cast(Pid, Msg).
 
 observe_search_query(#search_query{} = Search, Context) ->
+    ?DEBUG(Search),
     search(Search, Context).
 
 init(Args) ->
