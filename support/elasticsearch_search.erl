@@ -127,10 +127,10 @@ id_to_integer(Item) ->
 
 %% @doc Build Elasticsearch query from Zotonic query
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
-build_query(Query, {From, Size}, Context) ->
+build_query(Query, {From, _Size}, Context) ->
     #{
         <<"from">> => From - 1, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
-        <<"size">> => Size,
+        <<"size">> => 10000, %%Size,
         <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
         <<"query">> => #{
             <<"function_score">> => #{
@@ -172,29 +172,58 @@ do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
 
     %% Invisible by default, as Zotonic has minimum log level 'info'
     lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(ElasticQuery)]),
-    search_result(erlastic_search:search(elasticsearch:connection(),
-                                         Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
+    search_result(
+      erlastic_search:search(elasticsearch:connection(), Index, ElasticQuery),
+      ElasticQuery, ZotonicQuery, {From, Size}, Context).
+
+paginate([], _, _, Acc, _, _) ->
+    Acc;
+paginate([Result|Results], From, Size, Acc, Rejected, Context) ->
+    case length(Acc) =:= Size of
+        true ->
+            Acc;
+        false ->
+            BId = maps:get(<<"_id">>, Result),
+            IId = list_to_integer(binary_to_list(BId)),
+            case m_rsc:is_visible(IId, Context) of
+                true ->
+                    case Rejected < From of
+                        true ->
+                            paginate(Results, From, Size, Acc, Rejected + 1, Context);
+                        false ->
+                            paginate(Results, From, Size, [Result|Acc], Rejected, Context)
+                    end;
+                false ->
+                    paginate(Results, From, Size, Acc, Rejected, Context)
+            end
+    end.
+paginate(Results, From, Size, Context) ->
+    paginate(Results, From, Size, [], 0, Context).
 
 %% @doc Process search result
--spec search_result(tuple(), map(), proplists:proplist(), tuple()) -> any().
-search_result({error, Error}, ElasticQuery, ZotonicQuery, _Offset) ->
+-spec search_result(tuple(), map(), proplists:proplist(), tuple(), z:context()) -> any().
+search_result({error, Error}, ElasticQuery, ZotonicQuery, _Offset, _Context) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
         [Error, jsx:encode(ElasticQuery), ZotonicQuery]
     ),
-
     %% Return empty search result
     #search_result{};
-search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_list(Json) ->
+search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}, Context) when is_list(Json) ->
+
     Hits = proplists:get_value(<<"hits">>, Json),
     Total = proplists:get_value(<<"total">>, Hits),
-    Results = proplists:get_value(<<"hits">>, Hits),
+    ?DEBUG([Hits, Total]),
+    Results = paginate(
+                proplists:get_value(<<"hits">>, Hits),
+                From, Size, Context),
+    ?DEBUG([length(Results), Size]),
     Page = From div Size + 1,
     Pages = mochinum:int_ceil(Total / Size),
     Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations};
-search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQuery, ZotonicQuery, _Offset) ->
+search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQuery, ZotonicQuery, _Offset, _Context) ->
     lager:error(
         "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
         [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
@@ -202,16 +231,26 @@ search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQu
 
     %% Return empty search result
     #search_result{};
-search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
+search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}, _Context) ->
     [#{<<"options">> := Options}] = maps:get(hd(maps:keys(Suggest)), Suggest),
     Options;
-search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
+search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, {From, Size}, Context) ->
     %% From jsx 3.0+ or JSX_FORCE_MAPS is set
     #{<<"total">> := Total, <<"hits">> := Results} = Hits,
     Page = From div Size + 1,
     Pages = mochinum:int_ceil(Total / Size),
     Aggregations = maps:get(<<"aggregations">>, Json, []),
-    #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations}.
+    PaginatedResults = paginate(
+                         Results,
+                         From, Size, Context),
+    ?DEBUG([Hits, Total]),
+    ?DEBUG([length(Results), Size]),
+    #search_result{result = PaginatedResults,
+                   total = Total,
+                   pagelen = Size,
+                   pages = Pages,
+                   page = Page,
+                   facets = Aggregations}.
 
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
