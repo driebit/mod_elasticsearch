@@ -140,7 +140,10 @@ build_query(Query, {From, Size}, Context) ->
                         <<"filter">> => build_filter(Query, Context)
                     }
                 },
-                <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Q, Context) end, Query)
+                <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Q, Context) end, Query),
+                % Because the bool query returns scores of 0, we set the boost_mode to additive instead of multiplicative,
+                % as suggested in https://github.com/elastic/elasticsearch/issues/18273#issuecomment-218482493
+                <<"boost_mode">> => <<"sum">>
             }
         },
         <<"aggregations">> => lists:foldl(fun(Arg, Acc) -> map_aggregation(Arg, Acc, Context) end, #{}, Query)
@@ -163,6 +166,8 @@ map_score_function({score_function, #{<<"filter">> := Filter} = Function}, Conte
     {true, Function#{<<"filter">> => build_filter(Filter, Context)}};
 map_score_function({score_function, Function}, _Context) ->
     {true, Function};
+map_score_function({sort, <<"random">>}, Context) ->
+    {true, #{<<"random_score">> => #{<<"seed">> => os:system_time()}}};
 map_score_function(_, _Context) ->
     false.
 
@@ -234,6 +239,8 @@ source(Query, Default) ->
 %%      Return false to ignore the query argument.
 map_sort({sort, Property}, Context) when is_atom(Property) or is_list(Property) ->
     map_sort({sort, z_convert:to_binary(Property)}, Context);
+map_sort({sort, <<"random">>}, _Context) ->
+    false;
 map_sort({sort, Seq}, _Context) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">>; Seq =:= <<>>  ->
     %% Ignore sort by seq: edges are (by default) indexed in order of seq
     false;
