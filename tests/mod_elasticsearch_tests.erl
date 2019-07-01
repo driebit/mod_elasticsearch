@@ -4,6 +4,58 @@
 -include_lib("zotonic.hrl").
 -include_lib("../include/elasticsearch.hrl").
 
+build_query_test() ->
+    Query = elasticsearch_search:build_query([], {1,100}, context()),
+    ?assertEqual(Query, #{<<"aggregations">> => #{},
+                          <<"from">> => 0,
+                          <<"query">> =>
+                              #{<<"function_score">> =>
+                                    #{<<"functions">> => [],
+                                      <<"query">> =>
+                                          #{<<"bool">> =>
+                                                #{<<"filter">> =>
+                                                      #{<<"bool">> =>
+                                                            #{<<"must">> => [],
+                                                              <<"must_not">> => []
+                                                             }
+                                                       },
+                                                  <<"must">> => []
+                                                 }
+                                           }
+                                     }
+                               },
+                          <<"size">> => 100,
+                          <<"sort">> => []
+                         }
+                ).
+
+build_query_sort_random_test() ->
+    Seed = 10,
+    Query = elasticsearch_search:build_query([{sort,<<"random">>}, {seed, Seed}], {1,100}, context()),
+    ?assertEqual(Query, #{<<"aggregations">> => #{},
+                          <<"from">> => 0,
+                          <<"query">> =>
+                              #{<<"function_score">> =>
+                                    #{<<"boost_mode">> => <<"sum">>,
+                                      <<"functions">> => [#{<<"random_score">> => #{<<"seed">> => Seed}}],
+                                      <<"query">> =>
+                                          #{<<"bool">> =>
+                                                #{<<"filter">> =>
+                                                      #{<<"bool">> =>
+                                                            #{<<"must">> => [],
+                                                              <<"must_not">> => []
+                                                             }
+                                                       },
+                                                  <<"must">> => []
+                                                 }
+                                           }
+                                     }
+                               },
+                          <<"size">> => 100,
+                          <<"sort">> => []
+                         }
+                ).
+
 map_test() ->
     {ok, Id} = m_rsc:insert(
         [

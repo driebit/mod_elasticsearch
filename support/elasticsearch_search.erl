@@ -3,7 +3,8 @@
 
 -export([
     search/2,
-    search/3
+    search/3,
+    build_query/3
 ]).
 
 -include_lib("zotonic.hrl").
@@ -128,24 +129,27 @@ id_to_integer(Item) ->
 %% @doc Build Elasticsearch query from Zotonic query
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
 build_query(Query, {From, Size}, Context) ->
+    FunctionScore = #{
+        <<"query">> => #{
+            <<"bool">> => #{
+                <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
+                <<"filter">> => build_filter(Query, Context)
+            }
+        },
+        <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Query, Q, Context) end, Query)
+    },
+    % Because the bool query returns scores of 0, we set the boost_mode to additive instead of multiplicative,
+    % as suggested in https://github.com/elastic/elasticsearch/issues/18273#issuecomment-218482493
+    FunctionScore1 =
+        case proplists:get_value(sort, Query, undefined) of
+            <<"random">> -> FunctionScore#{<<"boost_mode">> => <<"sum">>};
+            _ -> FunctionScore
+        end,
     #{
         <<"from">> => From - 1, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
         <<"size">> => Size,
         <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
-        <<"query">> => #{
-            <<"function_score">> => #{
-                <<"query">> => #{
-                    <<"bool">> => #{
-                        <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
-                        <<"filter">> => build_filter(Query, Context)
-                    }
-                },
-                <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Q, Context) end, Query),
-                % Because the bool query returns scores of 0, we set the boost_mode to additive instead of multiplicative,
-                % as suggested in https://github.com/elastic/elasticsearch/issues/18273#issuecomment-218482493
-                <<"boost_mode">> => <<"sum">>
-            }
-        },
+        <<"query">> => #{<<"function_score">> => FunctionScore1},
         <<"aggregations">> => lists:foldl(fun(Arg, Acc) -> map_aggregation(Arg, Acc, Context) end, #{}, Query)
     }.
 
@@ -159,16 +163,17 @@ build_filter(Query, Context) ->
     }.
 
 %% @doc Map custom score function (function_score).
--spec map_score_function({atom(), list() | map()}, z:context()) -> {true, _} | false.
-map_score_function({score_function, Function}, Context) when is_list(Function) ->
-    map_score_function({score_function, maps:from_list(Function)}, Context);
-map_score_function({score_function, #{<<"filter">> := Filter} = Function}, Context) ->
+-spec map_score_function(list(), {atom(), list() | map()}, z:context()) -> {true, _} | false.
+map_score_function(Query, {score_function, Function}, Context) when is_list(Function) ->
+    map_score_function(Query, {score_function, maps:from_list(Function)}, Context);
+map_score_function(_Query, {score_function, #{<<"filter">> := Filter} = Function}, Context) ->
     {true, Function#{<<"filter">> => build_filter(Filter, Context)}};
-map_score_function({score_function, Function}, _Context) ->
+map_score_function(_Query, {score_function, Function}, _Context) ->
     {true, Function};
-map_score_function({sort, <<"random">>}, Context) ->
-    {true, #{<<"random_score">> => #{<<"seed">> => os:system_time()}}};
-map_score_function(_, _Context) ->
+map_score_function(Query, {sort, <<"random">>}, _Context) ->
+    Seed = proplists:get_value(seed, Query, os:system_time()),
+    {true, #{<<"random_score">> => #{<<"seed">> => Seed}}};
+map_score_function(_, _, _) ->
     false.
 
 -spec do_search(map(), proplists:proplist(), {pos_integer(), pos_integer()}, z:context()) -> #search_result{}.
