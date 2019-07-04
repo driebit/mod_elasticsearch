@@ -1,14 +1,13 @@
 language: erlang
 otp_release:
     - 20.3
-    - 18.3
+    - 19.0
 
 services:
     - elasticsearch
     - postgresql
 
 before_script:
-    - kerl list installations
     - psql -c 'CREATE USER zotonic; ALTER USER zotonic CREATEDB;' -U postgres
 
 script:
