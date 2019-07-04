@@ -76,17 +76,18 @@ search(#search_query{search = {query, Query}, offsetlimit = Offset}, Options, Co
     ZotonicQuery = with_query_id(Query, Context),
     case is_elasticsearch(ZotonicQuery, Options) of
         true ->
-	    ElasticQuery = build_query(ZotonicQuery, Offset, Context),
-	    Source = source(ZotonicQuery, false),
-	    SourceElasticQuery = ElasticQuery#{<<"_source">> => Source},
-	    #search_result{result = Items} = SearchResult =
-		do_search(SourceElasticQuery, ZotonicQuery, Offset, Context),
-	    case Source of
-		false ->
-		    Ids = [id_to_integer(Item) || Item <- Items],
-		    SearchResult#search_result{result = Ids};
-		_ -> SearchResult
-	    end;
+            ElasticQuery = build_query(ZotonicQuery, Offset, Context),
+            Source = source(ZotonicQuery, false),
+            SourceElasticQuery = ElasticQuery#{<<"_source">> => Source},
+            #search_result{result = Items} = SearchResult =
+            do_search(SourceElasticQuery, ZotonicQuery, Offset, Context),
+            case Source of
+		        false ->
+		            Ids = [id_to_integer(Item) || Item <- Items],
+		            SearchResult#search_result{result = Ids};
+		        _ ->
+                    SearchResult
+    	    end;
         false ->
             undefined
     end.
@@ -204,19 +205,21 @@ search_result({ok, Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) when is_li
     Aggregations = proplists:get_value(<<"aggregations">>, Json),
 
     #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations};
-search_result({ok, #{<<"_shards">> := #{<<"failures">> := Failures}}}, ElasticQuery, ZotonicQuery, _Offset) ->
-    lager:error(
-        "Elasticsearch query failed: ~p for query ~s (from Zotonic query ~p)",
-        [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
-    ),
-
-    %% Return empty search result
-    #search_result{};
 search_result({ok, #{<<"suggest">> := Suggest}}, _ElasticQuery, _ZotonicQuery, {_From, _Size}) ->
     [#{<<"options">> := Options}] = maps:get(hd(maps:keys(Suggest)), Suggest),
     Options;
-search_result({ok, #{<<"hits">> := Hits} = Json}, _ElasticQuery, _ZotonicQuery, {From, Size}) ->
+search_result({ok, #{<<"hits">> := Hits} = Json}, ElasticQuery, ZotonicQuery, {From, Size}) ->
     %% From jsx 3.0+ or JSX_FORCE_MAPS is set
+    Shards = maps:get(<<"_shards">>, Json),
+    case maps:get(<<"failures">>, Shards, undefined) of
+        undefined ->
+            nop;
+        Failures ->
+            lager:error(
+                "Elasticsearch returned failures: ~p for query ~s (from Zotonic query ~p)",
+                [Failures, jsx:encode(ElasticQuery), ZotonicQuery]
+            )
+    end,
     #{<<"total">> := Total, <<"hits">> := Results} = Hits,
     Page = From div Size + 1,
     Pages = mochinum:int_ceil(Total / Size),
@@ -452,6 +455,10 @@ map_must({date_end_year, Year}, _Context) ->
     {true, #{<<"term">> => #{<<"date_end">> => <<(z_convert:to_binary(Year))/binary, "||/y">>}}};
 map_must({publication_year, Year}, _Context) ->
     {true, #{<<"term">> => #{<<"publication_start">> => <<(z_convert:to_binary(Year))/binary, "||/y">>}}};
+map_must({publication_before, Date}, _Context) ->
+    {true, #{<<"range">> => #{<<"publication_start">> => #{<<"lte">> => z_convert:to_datetime(Date)}}}};
+map_must({publication_after, Date}, _Context) ->
+    {true, #{<<"range">> => #{<<"publication_start">> => #{<<"gte">> => z_convert:to_datetime(Date)}}}};
 map_must({content_group, []}, _Context) ->
     false;
 map_must({content_group, undefined}, _Context) ->
@@ -498,10 +505,11 @@ map_must({rsc_id, Id}, _Context) ->
     {true, #{<<"match">> => #{<<"_id">> => Id}}};
 map_must({text, "id:" ++ _ = Val}, Context) ->
     map_must({text, list_to_binary(Val)}, Context);
-map_must({text, <<"id:", Id/binary>>}, _Context) ->
-    %% Find by id when text argument equals "id:123"
+map_must({text, <<"id:", IdOrName/binary>>}, Context) ->
+    %% Find by id when text argument equals "id:123" or "id:unique_name"
+    Id = m_rsc:rid(z_string:trim(IdOrName), Context),
     {true, #{<<"match">> => #{
-        <<"_id">> => z_string:trim(Id)
+        <<"_id">> => Id
     }}};
 map_must(_, _) ->
     false.
