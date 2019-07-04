@@ -127,30 +127,33 @@ id_to_integer(#{<<"_id">> := Id}) ->
 id_to_integer(Item) ->
     z_convert:to_integer(proplists:get_value(<<"_id">>, Item)).
 
+build_function_score(Query, Context) ->
+    FunctionScore =
+        #{<<"query">> =>
+              #{<<"bool">> =>
+                    #{<<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
+                      <<"filter">> => build_filter(Query, Context)
+                     }
+               },
+          <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Query, Q, Context) end, Query)
+         },
+    case proplists:get_value(sort, Query, undefined) of
+        <<"random">> ->
+            FunctionScore#{<<"boost_mode">> => <<"sum">>};
+        _ ->
+            FunctionScore
+    end.
+
 %% @doc Build Elasticsearch query from Zotonic query
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
 build_query(Query, {From, Size}, Context) ->
-    FunctionScore = #{
-        <<"query">> => #{
-            <<"bool">> => #{
-                <<"must">> => lists:filtermap(fun(Q) -> map_query(Q, Context) end, Query),
-                <<"filter">> => build_filter(Query, Context)
-            }
-        },
-        <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Query, Q, Context) end, Query)
-    },
     % Because the bool query returns scores of 0, we set the boost_mode to additive instead of multiplicative,
     % as suggested in https://github.com/elastic/elasticsearch/issues/18273#issuecomment-218482493
-    FunctionScore1 =
-        case proplists:get_value(sort, Query, undefined) of
-            <<"random">> -> FunctionScore#{<<"boost_mode">> => <<"sum">>};
-            _ -> FunctionScore
-        end,
     #{
         <<"from">> => From - 1, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
         <<"size">> => Size,
         <<"sort">> => lists:flatten(lists:filtermap(fun(Q) -> map_sort(Q, Context) end, Query)),
-        <<"query">> => #{<<"function_score">> => FunctionScore1},
+        <<"query">> => #{<<"function_score">> => build_function_score(Query, Context)},
         <<"aggregations">> => lists:foldl(fun(Arg, Acc) -> map_aggregation(Arg, Acc, Context) end, #{}, Query)
     }.
 
