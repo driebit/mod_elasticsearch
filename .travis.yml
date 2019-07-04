@@ -1,7 +1,7 @@
 language: erlang
 otp_release:
     - 20.3
-    - 18.0
+    - 18.3
 
 services:
     - elasticsearch
