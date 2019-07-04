@@ -137,6 +137,8 @@ build_function_score(Query, Context) ->
                },
           <<"functions">> => lists:filtermap(fun(Q) -> map_score_function(Query, Q, Context) end, Query)
          },
+    % Because the bool query returns scores of 0, we set the boost_mode to additive instead of multiplicative,
+    % as suggested in https://github.com/elastic/elasticsearch/issues/18273#issuecomment-218482493
     case proplists:get_value(sort, Query, undefined) of
         <<"random">> ->
             FunctionScore#{<<"boost_mode">> => <<"sum">>};
@@ -147,8 +149,6 @@ build_function_score(Query, Context) ->
 %% @doc Build Elasticsearch query from Zotonic query
 -spec build_query(binary(), {pos_integer(), pos_integer()}, z:context()) -> map().
 build_query(Query, {From, Size}, Context) ->
-    % Because the bool query returns scores of 0, we set the boost_mode to additive instead of multiplicative,
-    % as suggested in https://github.com/elastic/elasticsearch/issues/18273#issuecomment-218482493
     #{
         <<"from">> => From - 1, %% Zotonic starts 'offset' at 1, Elasticsearch 'from' at 0.
         <<"size">> => Size,
