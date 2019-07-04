@@ -8,6 +8,7 @@ services:
     - postgresql
 
 before_script:
+    - kerl list installations
     - psql -c 'CREATE USER zotonic; ALTER USER zotonic CREATEDB;' -U postgres
 
 script:
