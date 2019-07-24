@@ -3,11 +3,15 @@ mod_elasticsearch
 
 [![Build Status](https://travis-ci.com/driebit/mod_elasticsearch.svg?branch=master)](https://travis-ci.com/driebit/mod_elasticsearch)
 
+This [Zotonic](https://github.com/zotonic/zotonic) module gives you more relevant search results
+by making resources searchable through  
+[Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html).
+
 Installation
 ------------
 
-Add [tsloughter/erlastic_search](https://github.com/tsloughter/erlastic_search) and its
-dependencies at their proper version (for Erlang 18) to your Zotonic deps in `zotonic.config`:
+mod_elasticsearch acts as a bridge between Zotonic and the [tsloughter/erlastic_search](https://github.com/tsloughter/erlastic_search)
+Erlang library, so install that and its dependencies first by adding them to `deps` in `zotonic.config`:
 
 ```erlang
 {deps, [
