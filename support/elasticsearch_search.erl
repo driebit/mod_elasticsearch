@@ -412,12 +412,12 @@ map_must({cat_exact, Name}, Context) ->
 map_must({authoritative, Bool}, _Context) ->
     {true, on_resource(#{<<"term">> => #{<<"is_authoritative">> => z_convert:to_bool(Bool)}})};
 map_must({is_featured, Bool}, _Context) ->
-    {true, [#{<<"term">> => #{<<"is_featured">> => Bool}}]};
+    {true, [#{<<"term">> => #{<<"is_featured">> => z_convert:to_bool(Bool)}}]};
 map_must({is_published, Bool}, _Context) ->
     {true, on_resource(
         #{<<"bool">> =>
             #{<<"must">> => [
-                #{<<"term">> => #{<<"is_published">> => Bool}},
+                #{<<"term">> => #{<<"is_published">> => z_convert:to_bool(Bool)}},
                 #{<<"bool">> => optional(
                     <<"publication_start">>,
                     #{<<"range">> => #{<<"publication_start">> => #{<<"lt">> => <<"now">>}}}
