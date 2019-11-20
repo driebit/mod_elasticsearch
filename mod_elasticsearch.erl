@@ -10,6 +10,9 @@
 -export([
     pid_observe_rsc_update_done/3,
     pid_observe_rsc_pivot_done/3,
+    pid_observe_edge_insert/3,
+    pid_observe_edge_update/3,
+    pid_observe_edge_delete/3,
     observe_search_query/2,
     init/1,
     handle_call/3,
@@ -35,6 +38,15 @@ pid_observe_rsc_update_done(Pid, Msg, _Context) ->
     gen_server:cast(Pid, Msg).
 
 pid_observe_rsc_pivot_done(Pid, Msg, _Context) ->
+    gen_server:cast(Pid, Msg).
+
+pid_observe_edge_insert(Pid, Msg, _Context) ->
+    gen_server:cast(Pid, Msg).
+
+pid_observe_edge_update(Pid, Msg, _Context) ->
+    gen_server:cast(Pid, Msg).
+
+pid_observe_edge_delete(Pid, Msg, _Context) ->
     gen_server:cast(Pid, Msg).
 
 observe_search_query(#search_query{} = Search, Context) ->
@@ -80,6 +92,15 @@ handle_cast(#rsc_update_done{id = Id}, State = #state{context = Context}) ->
     {noreply, State};
 handle_cast(#rsc_pivot_done{id = Id}, State = #state{context = Context}) ->
     elasticsearch:put_doc(Id, Context),
+    {noreply, State};
+handle_cast(#edge_insert{subject_id = SubjectId}, State = #state{context = Context}) ->
+    elasticsearch:put_doc(SubjectId, Context),
+    {noreply, State};
+handle_cast(#edge_update{subject_id = SubjectId}, State = #state{context = Context}) ->
+    elasticsearch:put_doc(SubjectId, Context),
+    {noreply, State};
+handle_cast(#edge_delete{subject_id = SubjectId}, State = #state{context = Context}) ->
+    elasticsearch:put_doc(SubjectId, Context),
     {noreply, State};
 handle_cast(Msg, State) ->
     {stop, {unknown_cast, Msg}, State}.
