@@ -33,8 +33,8 @@ file:
 [
     %% ...
     {erlastic_search, [
-        {host, <<"elasticsearch">>} %% Defaults to 127.0.0.1
-        {port, 9200}                %% Defaults to 9200
+        {host, <<"elasticsearch">>}, %% Defaults to 127.0.0.1
+        {port, 9200}                 %% Defaults to 9200
     ]},
     %% ...
 ].
