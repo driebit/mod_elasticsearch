@@ -5,6 +5,8 @@
 -mod_description("Elasticsearch integration for Zotonic").
 -mod_prio(500).
 -mod_schema(1).
+-mod_provides([ elasticsearch ]).
+
 -behaviour(gen_server).
 
 -export([
