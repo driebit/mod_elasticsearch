@@ -7,6 +7,13 @@ This [Zotonic](https://github.com/zotonic/zotonic) module gives you more relevan
 by making resources searchable through  
 [Elasticsearch](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html).
 
+Note
+----
+
+This module uses Elastic Search 5.x, which has support for _Types_.
+
+For Elastic 7+, use https://github.com/driebit/mod_elasticsearch2
+
 Installation
 ------------
 
