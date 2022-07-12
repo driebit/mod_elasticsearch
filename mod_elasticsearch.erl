@@ -16,6 +16,7 @@
     pid_observe_edge_update/3,
     pid_observe_edge_delete/3,
     observe_search_query/2,
+    event/2,
     init/1,
     handle_call/3,
     handle_cast/2,
@@ -25,7 +26,10 @@
     start_link/1,
     manage_schema/2,
     observe_elasticsearch_put/3,
-    pool/0
+    pool/0,
+
+    prepare_index/1,
+    delete_recreate_index/1
 ]).
 
 -include("zotonic.hrl").
@@ -53,6 +57,16 @@ pid_observe_edge_delete(Pid, Msg, _Context) ->
 
 observe_search_query(#search_query{} = Search, Context) ->
     search(Search, Context).
+
+
+event(#postback{ message={delete_index, _Args}}, Context) ->
+    case z_acl:is_admin(Context) of
+        true ->
+            delete_recreate_index(Context),
+            z_render:growl(?__("Index has been recreated. Rebuild search indices to fill it.", Context), Context);
+        false ->
+            z_render:growl_error(?__("You need to be an admin to delete the Elastic Search index.", Context), Context)
+    end.
 
 init(Args) ->
     start(),
@@ -166,6 +180,14 @@ prepare_index(Context) ->
     {Hash, Mapping} = elasticsearch_mapping:default_mapping(resource, Context),
     Index = elasticsearch:index(Context),
     ok = elasticsearch_index:upgrade(Index, [{<<"resource">>, Mapping}], Hash, Context).
+
+%% @doc Delete and recreate an empty index.
+-spec delete_recreate_index(z:context()) -> ok.
+delete_recreate_index(Context) ->
+    {Hash, Mapping} = elasticsearch_mapping:default_mapping(resource, Context),
+    Index = elasticsearch:index(Context),
+    ok = elasticsearch_index:delete_recreate(Index, [{<<"resource">>, Mapping}], Hash, Context).
+
 
 pool() ->
     elastic_pool.

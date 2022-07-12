@@ -2,12 +2,28 @@
 -module(elasticsearch_index).
 
 -export([
+    delete_recreate/4,
     upgrade/4,
-    ensure_index/1
+    ensure_index/1,
+    create_index/1,
+    delete_index/1
 ]).
 
 -include_lib("zotonic.hrl").
 -include_lib("erlastic_search/include/erlastic_search.hrl").
+
+
+%% @doc Delete the current index and recreate a new empty index.
+delete_recreate(Index, TypeMappings, Version, Context) ->
+    VersionedIndex = versioned_index(Index, Version),
+    case index_exists(VersionedIndex) of
+        true ->
+            delete_index(VersionedIndex);
+        false ->
+            ok
+    end,
+    upgrade(Index, TypeMappings, Version, Context).
+
 
 %% @doc Upgrade mappings for an index
 %%      This:
@@ -121,6 +137,15 @@ create_index(Index) ->
     lager:info("mod_elasticsearch: creating index ~s", [Index]),
     Response = erlastic_search:create_index(elasticsearch:connection(), Index),
     elasticsearch:handle_response(Response).
+
+
+%% @doc Create Elasticsearch index
+-spec delete_index(string()) -> string().
+delete_index(Index) ->
+    lager:info("mod_elasticsearch: deleting index ~s", [Index]),
+    Response = erlastic_search:delete_index(elasticsearch:connection(), Index),
+    elasticsearch:handle_response(Response).
+
 
 %% @doc Check if index exists.
 -spec index_exists(binary()) -> boolean().

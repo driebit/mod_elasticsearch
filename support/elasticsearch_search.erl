@@ -10,6 +10,10 @@
 -include_lib("zotonic.hrl").
 -include_lib("../include/elasticsearch.hrl").
 
+%% Assume that above this amount of rows the estimation of Elastic is not
+%% exact anymore. In the search result the 'is_total_estimated' flag will be set.
+-define(MAX_COUNTED_ROWS, 5000).
+
 %% @doc Convert Zotonic search query to an Elasticsearch query
 -spec search(#search_query{}, z:context()) -> #search_result{} | undefined.
 search(#search_query{search = {Type, Query}, offsetlimit = {From, Size}}, Context) when Size > 9999 ->
@@ -182,6 +186,7 @@ map_score_function(_, _, _) ->
 
 -spec do_search(map(), proplists:proplist(), {pos_integer(), pos_integer()}, z:context()) -> #search_result{}.
 do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
+    % io:format("~p:~p: ~n~p~n~n", [ ?MODULE, ?LINE, ElasticQuery ]),
     Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
 
     %% Invisible by default, as Zotonic has minimum log level 'info'
@@ -227,7 +232,15 @@ search_result({ok, #{<<"hits">> := Hits} = Json}, ElasticQuery, ZotonicQuery, {F
     Page = From div Size + 1,
     Pages = mochinum:int_ceil(Total / Size),
     Aggregations = maps:get(<<"aggregations">>, Json, []),
-    #search_result{result = Results, total = Total, pagelen = Size, pages = Pages, page = Page, facets = Aggregations}.
+    #search_result{
+        result = Results,
+        total = Total,
+        is_total_estimated = Total > ?MAX_COUNTED_ROWS,
+        pagelen = Size,
+        pages = Pages,
+        page = Page,
+        facets = Aggregations
+    }.
 
 %% @doc Add search arguments from query resource to original query
 with_query_id(Query, Context) ->
