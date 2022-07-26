@@ -122,6 +122,10 @@ is_elasticsearch_props([{query_context_filter, _} | _]) ->
     true;
 is_elasticsearch_props([{score_function, _} | _]) ->
     true;
+is_elasticsearch_props([{elastic_query, _} | _]) ->
+    true;
+is_elasticsearch_props([{index, _} | _]) ->
+    true;
 is_elasticsearch_props([_Prop | List]) ->
     is_elasticsearch_props(List).
 
