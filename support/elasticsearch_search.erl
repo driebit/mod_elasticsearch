@@ -661,7 +661,7 @@ map_sort_property(<<"pivot_title">>) -> <<"pivot_title">>;
 %% the keyword field is named title.keyword, not title_en.keyword etc.
 map_sort_property(<<"pivot_surname">>) -> <<"name_surname.keyword">>;
 map_sort_property(<<"pivot_first_name">>) -> <<"name_first.keyword">>;
-map_sort_property(<<"pivot_", Property/binary>>) -> Property;
+map_sort_property(<<"pivot_", Property/binary>>) -> <<Property/binary, ".keyword">>;
 map_sort_property(Sort) -> map_pivot(Sort).
 
 map_incoming_edge(Predicate, Subjects, Context) ->
