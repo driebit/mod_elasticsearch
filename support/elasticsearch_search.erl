@@ -267,39 +267,64 @@ source(Query, Default) ->
 
 %% @doc Map all sort terms keep asort, sort, zsort order
 map_sorts(Query) ->
-    lists:flatten(
-           lists:filtermap(fun(Q) -> map_sort(asort, Q) end, Query)
-        ++ lists:filtermap(fun(Q) -> map_sort(sort, Q) end, Query)
-        ++ lists:filtermap(fun(Q) -> map_sort(zsort, Q) end, Query)
-    ).
+    Sorts = lists:flatten([
+        lists:filtermap(fun(Q) -> map_sort(asort, Q) end, Query),
+        lists:filtermap(fun(Q) -> map_sort(sort, Q) end, Query)
+    ]),
+    lists:flatten([
+        Sorts,
+        case lists:member(<<"_score">>, Sorts) of
+            false -> lists:filtermap(fun(Q) -> map_sort_text(Q) end, Query);
+            true -> []
+        end,
+        lists:filtermap(fun(Q) -> map_sort(zsort, Q) end, Query)]).
 
 %% @doc Map sort query arguments.
 %%      Return false to ignore the query argument.
-map_sort(Key, {Key, Property}) when is_atom(Property); is_list(Property) ->
-    map_sort(Key, {Key, z_convert:to_binary(Property)});
-map_sort(Key, {Key, <<"random">>}) ->
+map_sort(SortKey, {SortKey, Property}) when is_atom(Property); is_list(Property) ->
+    map_sort(SortKey, {SortKey, z_convert:to_binary(Property)});
+map_sort(SortKey, {SortKey, <<"random">>}) ->
     false;
-map_sort(Key, {Key, Seq}) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">>; Seq =:= <<>>  ->
+map_sort(SortKey, {SortKey, Seq}) when Seq =:= <<"seq">>; Seq =:= <<"+seq">>; Seq =:= <<"-seq">>; Seq =:= <<>>  ->
     %% Ignore sort by seq: edges are (by default) indexed in order of seq
     false;
-map_sort(Key, {Key, <<"-", Property/binary>>}) ->
+map_sort(SortKey, {SortKey, <<"-", Property/binary>>}) ->
     map_sort_1(Property, <<"desc">>);
-map_sort(Key, {Key, <<"+", Property/binary>>}) ->
+map_sort(SortKey, {SortKey, <<"+", Property/binary>>}) ->
     map_sort_1(Property, <<"asc">>);
 map_sort(sort, {match_objects, _Id}) ->
-    %% Sort a match_objects }by date
+    %% Sort a match_objects
     {true, [
         <<"_score">>, %% Primary sort on score
         #{<<"modified">> => <<"desc">>}
 
     ]};
-map_sort(Key, {Key, Property}) ->
+map_sort(SortKey, {SortKey, Property}) ->
     map_sort_1(Property, <<"asc">>);
 map_sort(_, _) ->
     false.
 
 map_sort_1(Property, Order) ->
     {true, #{map_sort_property(Property) => #{order => Order}}}.
+
+%% @doc Define a sort on _score if there is a textual search.
+map_sort_text({text, Text}) when not is_binary(Text) ->
+    map_sort_text({text, z_convert:to_binary(Text)});
+map_sort_text({text, <<>>}) ->
+    false;
+map_sort_text({text, <<"id:", _/binary>>}) ->
+    false;
+map_sort_text({text, _Text}) ->
+    {true, [ <<"_score">> ]};
+map_sort_text({prefix, Prefix}) when not is_binary(Prefix) ->
+    map_sort_text({prefix, z_convert:to_binary(Prefix)});
+map_sort_text({prefix, <<>>}) ->
+    false;
+map_sort_text({prefix, _}) ->
+    {true, [ <<"_score">> ]};
+map_sort_text(_) ->
+    false.
+
 
 %% @doc Map full text query
 -spec map_query({atom(), any()}, z:context()) -> {true, list()} | false.
