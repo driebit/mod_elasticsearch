@@ -4,6 +4,10 @@
     id :: binary()
 }).
 
+-record(elasticsearch_query, {
+    index :: binary()
+}).
+
 -record(elasticsearch_fields, {
     query :: binary() | map()
 }).

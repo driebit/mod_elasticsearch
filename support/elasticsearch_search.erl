@@ -192,11 +192,17 @@ map_score_function(_, _, _) ->
 do_search(ElasticQuery, ZotonicQuery, {From, Size}, Context) ->
     % io:format("~p:~p: ~n~p~n~n", [ ?MODULE, ?LINE, ElasticQuery ]),
     Index = z_convert:to_binary(proplists:get_value(index, ZotonicQuery, elasticsearch:index(Context))),
+    AmendedQuery =
+        z_notifier:foldl(
+          #elasticsearch_query{index = Index}, % should we include From, Size and ZotonicQuery?
+          ElasticQuery,
+          Context
+         ),
 
     %% Invisible by default, as Zotonic has minimum log level 'info'
-    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(ElasticQuery)]),
-    search_result(erlastic_search:search(elasticsearch:connection(),
-                                         Index, ElasticQuery), ElasticQuery, ZotonicQuery, {From, Size}).
+    lager:debug("Elasticsearch query on index ~s: ~s", [Index, jsx:encode(AmendedQuery)]),
+    search_result(erlastic_search:search(elasticsearch:connection(), Index, AmendedQuery),
+                  AmendedQuery, ZotonicQuery, {From, Size}).
 
 %% @doc Process search result
 -spec search_result(tuple(), map(), proplists:proplist(), tuple()) -> any().
